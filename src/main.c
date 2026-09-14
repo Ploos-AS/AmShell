@@ -13,12 +13,12 @@
 #include "exec.h"
 #include "session.h"
 
-#define AMSHELL_VERSION "0.1.0-m1.3"
+#define AMSHELL_VERSION "0.1.0-m1.6"
 #define AMSHELL_LINE_MAX 1024
 
 static void print_usage(const char *program)
 {
-    printf("Usage: %s [--version] [--help] [-c \"command\"]\n", program);
+    printf("Usage: %s [--version] [--help] [-c \"command\"] [command-file]\n", program);
 }
 
 static void trim_line_end(char *line)
@@ -67,10 +67,17 @@ static int interactive_loop(void)
     return (int)last_rc;
 }
 
+static int normalize_result(long rc)
+{
+    if (rc < 0) {
+        fputs("AmShell: unable to launch system Shell\n", stderr);
+        return RETURN_FAIL;
+    }
+    return (int)rc;
+}
+
 int main(int argc, char **argv)
 {
-    long rc;
-
     if (argc == 1) {
         return interactive_loop();
     }
@@ -86,12 +93,11 @@ int main(int argc, char **argv)
     }
 
     if (argc == 3 && strcmp(argv[1], "-c") == 0) {
-        rc = amshell_execute(argv[2]);
-        if (rc < 0) {
-            fputs("AmShell: unable to launch system Shell\n", stderr);
-            return RETURN_FAIL;
-        }
-        return (int)rc;
+        return normalize_result(amshell_execute(argv[2]));
+    }
+
+    if (argc == 2 && argv[1][0] != '-') {
+        return normalize_result(amshell_execute_file(argv[1]));
     }
 
     fputs("AmShell: unsupported arguments\n", stderr);
