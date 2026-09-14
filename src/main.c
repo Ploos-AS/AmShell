@@ -13,7 +13,7 @@
 #include "exec.h"
 #include "session.h"
 
-#define AMSHELL_VERSION "0.1.0-m1.8"
+#define AMSHELL_VERSION "0.1.0-m1.10"
 #define AMSHELL_LINE_MAX 1024
 
 static void print_usage(const char *program)
