@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare M1.7 native EXECUTE and AmShell script-argument results."""
+"""Compare native EXECUTE and AmShell script-argument results."""
 
 from pathlib import Path
 import argparse
@@ -17,8 +17,8 @@ def load_cases():
     for raw in CASES.read_text(encoding="utf-8").splitlines():
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
-        case_id, arguments = raw.split("\t", 1)
-        cases.append((case_id, arguments))
+        case_id, script, arguments = raw.split("\t", 2)
+        cases.append((case_id, script, arguments))
     return cases
 
 
@@ -30,7 +30,7 @@ def main() -> int:
     failures = 0
     cases = load_cases()
 
-    for case_id, arguments in cases:
+    for case_id, script, arguments in cases:
         paths = {
             "native_out": args.results / f"native-{case_id}.out",
             "native_rc": args.results / f"native-{case_id}.rc",
@@ -54,11 +54,12 @@ def main() -> int:
         if native_out != amshell_out:
             mismatch.append("output differs")
 
+        invocation = f"{script} {arguments}".rstrip()
         if mismatch:
-            print(f"FAIL {case_id}: {'; '.join(mismatch)} :: {arguments}")
+            print(f"FAIL {case_id}: {'; '.join(mismatch)} :: {invocation}")
             failures += 1
         else:
-            print(f"PASS {case_id}: {arguments} :: RC {native_rc}")
+            print(f"PASS {case_id}: {invocation} :: RC {native_rc}")
 
     if failures:
         print(f"RESULT: FAIL ({failures}/{len(cases)} cases differ)")
