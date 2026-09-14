@@ -1,0 +1,7 @@
+# id	arguments
+required-only	alpha
+positional-two	alpha beta
+keyword	alpha MODE turbo
+optional-omitted	alpha MODE turbo
+space-value	"alpha value" beta
+missing-required	MODE turbo
