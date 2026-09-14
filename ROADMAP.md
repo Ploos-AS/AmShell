@@ -24,6 +24,7 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 - [ ] basic command-file execution
 - [x] seed original-Shell differential compatibility corpus
 - [x] automated differential harness and result comparator
+- [x] reproducible M1.5 AmigaOS/FS-UAE qualification bundle
 - [ ] run and record first AmigaOS/FS-UAE differential qualification
 - [ ] broaden `CD` compatibility beyond the conservative standalone baseline
 
@@ -49,7 +50,11 @@ This is deliberately conservative. Quoted or compound `CD` command lines contain
 
 `tools/compat_compare.py` compares collected deterministic stdout and RC observations and emits an explicit PASS/FAIL verdict. Host-side smoke tests cover preparation, equivalence and deliberate mismatch detection.
 
-M1.4 provides the harness; an actual AmigaOS/FS-UAE runtime PASS is a separate qualification step and is not claimed until evidence has been collected.
+### M1.5 — reproducible runtime qualification package
+
+`tools/compat_bundle.py` packages the compatibility corpus, native and AmShell runners, manifest, guest runner and instructions into `build/m1.5-qualification/`. If a built 68k binary is available it is included automatically.
+
+The package makes the first FS-UAE/AmigaOS differential run reproducible, but M1.5 runtime PASS remains pending until returned guest evidence is compared successfully. A runtime result is never inferred from host-only CI.
 
 No enhanced syntax is allowed to compromise M1 compatibility.
 
