@@ -17,6 +17,7 @@ REQUIRED_FILES = (
     "src/session.c",
     "src/session.h",
     "tests/compat/cases.txt",
+    "tests/compat/scripts/basic.script",
     "tests/test_compat_tools.py",
     "tools/compat_prepare.py",
     "tools/compat_compare.py",
@@ -27,6 +28,7 @@ REQUIRED_FILES = (
     "docs/M1_4_DIFFERENTIAL_QUALIFICATION.md",
     "docs/M1_5_RUNTIME_QUALIFICATION.md",
     "docs/M1_5_QUALIFICATION.md",
+    "docs/M1_6_COMMAND_FILE_EXECUTION.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -80,12 +82,18 @@ def main() -> int:
         fail("interactive session does not retain the last return code")
     if "amshell_session_execute" not in source:
         fail("interactive loop bypasses session-state execution")
+    if "amshell_execute_file" not in source:
+        fail("entrypoint has no M1.6 command-file execution path")
 
     backend = (ROOT / "src/exec.c").read_text(encoding="utf-8")
     if "SystemTagList" not in backend:
         fail("execution backend does not delegate to AmigaDOS SystemTagList")
     if "SYS_UserShell" not in backend:
         fail("execution backend does not explicitly select Shell compatibility")
+    if "Execute \\\"" not in backend:
+        fail("command-file backend does not delegate scripts to native EXECUTE")
+    if "amshell_execute_file" not in backend:
+        fail("execution backend has no command-file entrypoint")
 
     session = (ROOT / "src/session.c").read_text(encoding="utf-8")
     if "CurrentDir" not in session or "Lock(" not in session:
@@ -101,6 +109,10 @@ def main() -> int:
     if len(cases) < 8:
         fail("compatibility corpus is too small for M1 baseline")
 
+    script_fixture = (ROOT / "tests/compat/scripts/basic.script").read_text(encoding="utf-8")
+    if "Echo AmShell-script-start" not in script_fixture or "Echo AmShell-script-end" not in script_fixture:
+        fail("M1.6 command-file fixture is incomplete")
+
     prepare = (ROOT / "tools/compat_prepare.py").read_text(encoding="utf-8")
     compare = (ROOT / "tools/compat_compare.py").read_text(encoding="utf-8")
     bundle = (ROOT / "tools/compat_bundle.py").read_text(encoding="utf-8")
@@ -113,7 +125,7 @@ def main() -> int:
     if "run-qualification.script" not in bundle or "m1.5-qualification" not in bundle:
         fail("M1.5 bundle tool does not create the guest qualification package")
 
-    print("PASS: AmShell M1.5 repository checks")
+    print("PASS: AmShell M1.6 repository checks")
     return 0
 
 
