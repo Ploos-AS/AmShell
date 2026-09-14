@@ -6,8 +6,9 @@
 - [x] Make original Amiga Shell compatibility a first-class requirement.
 - [x] Define compatibility contract.
 - [x] Establish initial architecture and milestone plan.
-- [ ] Add buildable 68000 skeleton.
-- [ ] Add host-side repository checks.
+- [x] Add buildable 68000 skeleton.
+- [x] Add host-side repository checks.
+- [x] Add CI for repository checks.
 
 ## M1 — Compatible execution core
 
