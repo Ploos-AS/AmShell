@@ -30,9 +30,12 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 - [x] M1.6 command-file runtime differential qualification on visible FS-UAE
 - [x] M1.7 command-file argument forwarding implementation and seed `.KEY` fixture
 - [x] reproducible M1.7 script-argument qualification bundle and comparator
-- [ ] M1.7 command-file arguments / `.KEY` differential runtime qualification
+- [x] defer M1.7 runtime execution to combined M1 final qualification
 - [ ] broaden M1.7 fixtures with `/N`, `/S`, defaults and `.BRA`/`.KET`
-- [ ] broaden `CD` compatibility beyond the conservative standalone baseline
+- [x] M1.8 native `ENDCLI`/`ENDSHELL` termination semantics
+- [x] M1.8 persistent exact quoted-path `CD` baseline
+- [ ] complete remaining patterned/implied `CD` compatibility surface
+- [ ] combined M1 final visible-FS-UAE differential qualification
 
 ### M1.1 — non-interactive execution baseline
 
@@ -97,9 +100,21 @@ AmShell only reconstructs the outer `EXECUTE` invocation, quoting each received 
 
 `tests/compat/script_args_cases.tsv` defines the first argument matrix. `tools/script_args_compat_bundle.py` packages direct native `EXECUTE` and AmShell candidate runs for each case, while `tools/script_args_compat_compare.py` requires identical captured output and RC. The baseline covers required/optional positional values, `/K`, quoted spaces and missing `/A`. No output normalization is used.
 
-Runtime qualification remains pending. Run `make script-args-compat-bundle`, execute the generated qualification script on visible FS-UAE/AmigaOS 2.04, collect `T:AmShellM17/`, and run the host comparator. See `docs/M1_7_RUNTIME_QUALIFICATION.md`.
+The runtime harness is ready, but execution is deliberately deferred to the combined M1 final qualification. This avoids repeated manual FS-UAE cycles while preserving the rule that no deferred case is called PASS before actual guest evidence exists. See `docs/M1_7_RUNTIME_QUALIFICATION.md`.
 
-After this baseline passes, add dedicated `/N`, `/S`, default and `.BRA`/`.KET` fixtures before declaring the broader M1 script-argument compatibility surface complete.
+Dedicated `/N`, `/S`, default and `.BRA`/`.KET` fixtures remain to be added before the combined M1 verdict.
+
+### M1.8 — interactive session compatibility
+
+AmShell now follows the original Shell's termination commands: standalone `ENDCLI` and `ENDSHELL` terminate the AmShell interactive loop. The previous special handling of `EXIT` has been removed so `EXIT` is once again ordinary delegated command text.
+
+Persistent `CD` handling now accepts exact quoted paths (including spaces and AmigaDOS `*"`/`**` escapes), trims surrounding whitespace and continues to support exact paths that `Lock()` resolves such as `/`, `//`, `:` and device/assign paths. Pattern/compound syntax remains delegated unchanged rather than being reimplemented by AmShell.
+
+The remaining pattern/implied-CD state-transfer gap is intentionally tracked for completion before the combined M1 final qualification. See `docs/M1_8_SESSION_COMPATIBILITY.md`.
+
+### M1 final qualification
+
+Before M1 is declared complete, run one combined visible FS-UAE qualification on the A500/68000 + AmigaOS 2.04 baseline. It must include regression of already-qualified M1.5/M1.6 behavior plus deferred M1.7 script arguments and M1.8 session-state/termination cases. Any unqualified behavior remains explicitly pending until that run produces recorded evidence.
 
 No enhanced syntax is allowed to compromise M1 compatibility.
 
