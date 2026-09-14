@@ -34,10 +34,9 @@ while IFS= read -r -d '' script; do
 done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
 
 # AROS Execute has proven unreliable with a fully-qualified command-file
-# argument even when that file exists on the mounted SYS: volume. The combined
-# script already CD's into each sub-bundle before Execute, so patch only the
-# staged CI copy to execute the local command-file name. This leaves the normal
-# AmigaOS qualification bundle unchanged.
+# argument. The combined script already CD's into each sub-bundle before
+# Execute, so patch only the staged CI copy to execute the local command-file
+# name. This leaves the normal AmigaOS qualification bundle unchanged.
 final_script="$aros_root/qualification/run-m1-final.script"
 sed -i \
   -e 's#Execute SYS:qualification/m1.5/run-qualification.script#Execute run-qualification.script#' \
@@ -70,17 +69,17 @@ SYS:C/Echo "persistent-results-ready" >SYS:amshell-ci-stage.txt
 
 CD SYS:qualification
 SYS:C/Echo "qualification-execute" >SYS:amshell-ci-stage.txt
-SYS:C/Execute run-m1-final.script >SYS:amshell-ci-console.txt
+; Execute is a Shell command on the hosted AROS image. Do not force SYS:C/Execute:
+; that path can be absent even though the Shell command itself is available.
+Execute run-m1-final.script >SYS:amshell-ci-console.txt
 SYS:C/Echo $RC >SYS:amshell-ci-rc.txt
 
-IF WARN
-  SYS:C/Echo "qualification-failed" >SYS:amshell-ci-stage.txt
-ELSE
-  SYS:C/Echo "AMSHELL_CI_GUEST_COMPLETE=1" >SYS:amshell-ci-complete.txt
-  SYS:C/Echo "qualification-complete" >SYS:amshell-ci-stage.txt
-ENDIF
+; Completion is advisory only. Host-side status below requires GUEST_RC=0.
+SYS:C/Echo "AMSHELL_CI_GUEST_RETURNED=1" >SYS:amshell-ci-returned.txt
+SYS:C/Echo "qualification-returned" >SYS:amshell-ci-stage.txt
 
-SYS:C/Execute SYS:S/Startup-Sequence.amshell-original
+; Resume the original AROS startup using the Shell command for the same reason.
+Execute SYS:S/Startup-Sequence.amshell-original
 EOF
 
 config="$OUT/aros-m1.fs-uae"
@@ -106,7 +105,7 @@ guest_rc=""
 if [[ -f "$aros_root/amshell-ci-rc.txt" ]]; then
   guest_rc="$(tr -d '\r\n ' < "$aros_root/amshell-ci-rc.txt")"
 fi
-if [[ -f "$aros_root/amshell-ci-complete.txt" && "$guest_rc" == "0" ]]; then
+if [[ -f "$aros_root/amshell-ci-returned.txt" && "$guest_rc" == "0" ]]; then
   status=PASS
   observation=combined_m1_guest_bundle_completed
 elif [[ -n "$guest_rc" ]]; then
