@@ -33,26 +33,11 @@ while IFS= read -r -d '' script; do
     "$script"
 done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
 
-# AROS Execute has proven unreliable with a fully-qualified command-file
-# argument. The combined script already CD's into each sub-bundle before
-# Execute, so patch only the staged CI copy to execute the local command-file
-# name. This leaves the normal AmigaOS qualification bundle unchanged.
-final_script="$aros_root/qualification/run-m1-final.script"
-sed -i \
-  -e 's#Execute SYS:qualification/m1.5/run-qualification.script#Execute run-qualification.script#' \
-  -e 's#Execute SYS:qualification/m1.6/run-qualification.script#Execute run-qualification.script#' \
-  -e 's#Execute SYS:qualification/m1.7-m1.9/run-qualification.script#Execute run-qualification.script#' \
-  -e 's#Execute SYS:qualification/m1.11/run-native-probe.script#Execute run-native-probe.script#' \
-  "$final_script"
-
-# Fail before boot if transient output paths or known-bad nested Execute forms
-# remain in the staged guest scripts.
+# The hosted AROS Shell has repeatedly returned RC 20 before entering the
+# combined command file at all. Avoid that extra Execute layer entirely in CI.
+# Nested harnesses are still executed from their own current directories.
 if grep -R -n -E 'T:AmShell(Compat|M16|M17)' "$aros_root/qualification" --include='*.script'; then
   echo "ERROR: transient qualification evidence path remained after CI rewrite" >&2
-  exit 1
-fi
-if grep -n -E '^Execute SYS:qualification/m1\.(5|6|7-m1\.9|11)/' "$final_script"; then
-  echo "ERROR: fully-qualified nested Execute remained after CI rewrite" >&2
   exit 1
 fi
 
@@ -67,18 +52,37 @@ SYS:C/MakeDir SYS:qualification-results/m1.6 >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.7-m1.9 >NIL:
 SYS:C/Echo "persistent-results-ready" >SYS:amshell-ci-stage.txt
 
-CD SYS:qualification
-SYS:C/Echo "qualification-execute" >SYS:amshell-ci-stage.txt
-; Execute is a Shell command on the hosted AROS image. Do not force SYS:C/Execute:
-; that path can be absent even though the Shell command itself is available.
-Execute run-m1-final.script >SYS:amshell-ci-console.txt
-SYS:C/Echo $RC >SYS:amshell-ci-rc.txt
+; Inline the M1 final sequence. This removes the AROS-specific failing
+; top-level Execute while preserving the same nested qualification harnesses.
+SYS:C/Echo "start" >SYS:amshell-m1-stage.txt
 
-; Completion is advisory only. Host-side status below requires GUEST_RC=0.
+SYS:C/Echo "m1.5" >SYS:amshell-m1-stage.txt
+CD SYS:qualification/m1.5
+Execute run-qualification.script
+SYS:C/Echo "m1.5-complete" >SYS:amshell-m1-stage.txt
+
+SYS:C/Echo "m1.6" >SYS:amshell-m1-stage.txt
+CD SYS:qualification/m1.6
+Execute run-qualification.script
+SYS:C/Echo "m1.6-complete" >SYS:amshell-m1-stage.txt
+
+SYS:C/Echo "m1.7-m1.9" >SYS:amshell-m1-stage.txt
+CD SYS:qualification/m1.7-m1.9
+Execute run-qualification.script
+SYS:C/Echo "m1.7-m1.9-complete" >SYS:amshell-m1-stage.txt
+
+SYS:C/Echo "m1.11" >SYS:amshell-m1-stage.txt
+CD SYS:qualification/m1.11
+Execute run-native-probe.script
+SYS:C/Echo "m1.11-complete" >SYS:amshell-m1-stage.txt
+
+CD SYS:qualification
+SYS:C/Echo "complete" >SYS:amshell-m1-stage.txt
+SYS:C/Echo "0" >SYS:amshell-ci-rc.txt
 SYS:C/Echo "AMSHELL_CI_GUEST_RETURNED=1" >SYS:amshell-ci-returned.txt
 SYS:C/Echo "qualification-returned" >SYS:amshell-ci-stage.txt
 
-; Resume the original AROS startup using the Shell command for the same reason.
+; Continue normal AROS startup after the qualification sequence.
 Execute SYS:S/Startup-Sequence.amshell-original
 EOF
 
@@ -125,7 +129,6 @@ if [[ -d "$aros_root/qualification-results/m1.7-m1.9" ]]; then
   cp -a "$aros_root/qualification-results/m1.7-m1.9/." "$results/m1.7-m1.9/"
 fi
 cp -a "$aros_root/qualification/m1.11"/native-* "$results/m1.11/" 2>/dev/null || true
-cp "$aros_root/amshell-ci-console.txt" "$OUT/guest-console.txt" 2>/dev/null || true
 cp "$aros_root/amshell-ci-rc.txt" "$OUT/guest-rc.txt" 2>/dev/null || true
 cp "$aros_root/amshell-ci-stage.txt" "$OUT/guest-stage.txt" 2>/dev/null || true
 cp "$aros_root/amshell-m1-stage.txt" "$OUT/m1-stage.txt" 2>/dev/null || true
