@@ -21,10 +21,12 @@ REQUIRED_FILES = (
     "tools/compat_prepare.py",
     "tools/compat_compare.py",
     "tools/compat_bundle.py",
+    "tools/compat_native.c",
     "docs/ARCHITECTURE.md",
     "docs/COMPATIBILITY.md",
     "docs/M1_4_DIFFERENTIAL_QUALIFICATION.md",
     "docs/M1_5_RUNTIME_QUALIFICATION.md",
+    "docs/M1_5_QUALIFICATION.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -53,6 +55,8 @@ def main() -> int:
         fail("Makefile has no differential compatibility preparation target")
     if "compat-bundle:" not in makefile:
         fail("Makefile has no M1.5 qualification bundle target")
+    if "tools/compat_native.c" not in makefile:
+        fail("M1.5 bundle does not build the native Shell capture launcher")
     if "tests/test_compat_tools.py" not in makefile:
         fail("make check does not execute compatibility harness smoke tests")
     for source in ("src/exec.c", "src/session.c"):

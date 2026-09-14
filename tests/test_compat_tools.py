@@ -9,6 +9,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 PREPARE = ROOT / "tools" / "compat_prepare.py"
 COMPARE = ROOT / "tools" / "compat_compare.py"
+BUNDLE = ROOT / "tools" / "compat_bundle.py"
 CASES = ROOT / "tests" / "compat" / "cases.txt"
 
 
@@ -50,6 +51,10 @@ def main() -> int:
         if first != corpus[0]:
             print("FAIL: native command file did not preserve exact command text")
             return 1
+        native_runner = (out / "run-native.script").read_text(encoding="utf-8")
+        if "CompatNative cases/native-001.script T:AmShellCompat/native-001.out" not in native_runner:
+            print("FAIL: native runner does not use the native capture launcher")
+            return 1
 
         results = Path(tmp) / "results"
         results.mkdir()
@@ -70,6 +75,67 @@ def main() -> int:
             print(different.stdout)
             return 1
 
+        manifest.write_text("001\tAvail\n", encoding="utf-8")
+        (results / "native-001.rc").write_text("0\n", encoding="latin-1")
+        (results / "amshell-001.rc").write_text("0\n", encoding="latin-1")
+        (results / "native-001.out").write_text(
+            "Type Available In-Use Maximum Largest\n"
+            "chip 900 100 1000 800\nfast 1800 200 2000 1700\n"
+            "total 2700 300 3000 1700\n",
+            encoding="latin-1",
+        )
+        (results / "amshell-001.out").write_text(
+            "Type Available In-Use Maximum Largest\n"
+            "chip 850 150 1000 750\nfast 1750 250 2000 1650\n"
+            "total 2600 400 3000 1650\n",
+            encoding="latin-1",
+        )
+        volatile = run(str(COMPARE), str(results), "--manifest", str(manifest))
+        if volatile.returncode != 0 or "RESULT: PASS" not in volatile.stdout:
+            print(volatile.stdout)
+            return 1
+
+        (results / "amshell-001.out").write_text(
+            "Type Available In-Use Maximum Largest\n"
+            "chip 850 150 1000 750\nfast 1750 250 2100 1650\n"
+            "total 2600 400 3100 1650\n",
+            encoding="latin-1",
+        )
+        stable_difference = run(
+            str(COMPARE), str(results), "--manifest", str(manifest)
+        )
+        if (
+            stable_difference.returncode == 0
+            or "RESULT: FAIL" not in stable_difference.stdout
+        ):
+            print(stable_difference.stdout)
+            return 1
+
+        bundle = Path(tmp) / "bundle"
+        bundled = run(str(BUNDLE), "--out", str(bundle))
+        if bundled.returncode != 0:
+            print(bundled.stdout)
+            return 1
+        candidate_runner = (bundle / "compat" / "run-amshell.script").read_text(
+            encoding="utf-8"
+        )
+        if "/AmShell -c " not in candidate_runner:
+            print("FAIL: bundled candidate runner cannot address the bundle binary")
+            return 1
+        native_runner = (bundle / "compat" / "run-native.script").read_text(
+            encoding="utf-8"
+        )
+        if "/CompatNative cases/native-001.script " not in native_runner:
+            print("FAIL: bundled native runner cannot address the capture launcher")
+            return 1
+        for script in (
+            bundle / "run-qualification.script",
+            bundle / "compat" / "run-native.script",
+            bundle / "compat" / "run-amshell.script",
+        ):
+            if "2>NIL:" in script.read_text(encoding="utf-8"):
+                print("FAIL: bundle contains non-AmigaDOS numbered redirection")
+                return 1
     print("PASS: AmShell M1.4 compatibility harness smoke tests")
     return 0
 

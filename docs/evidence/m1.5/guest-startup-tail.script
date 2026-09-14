@@ -1,0 +1,10 @@
+; Appended after the standard Workbench 2.04 startup initialized assigns/path.
+assign T: Results:
+Version >Results:environment.out
+CPU >Results:cpu.out
+CD Qualification:
+Execute run-qualification.script
+Echo $RC >Results:qualification.rc
+Echo "QUALIFICATION_COMPLETE" >Results:status.txt
+CD SYS:
+Wait 30

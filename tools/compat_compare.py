@@ -14,6 +14,29 @@ def read_text(path: Path) -> str:
     return normalize_output(path.read_text(encoding="latin-1"))
 
 
+def comparable_output(command: str, data: str) -> str:
+    """Remove only testcase fields that are inherently observation-volatile."""
+    if command.casefold() != "avail":
+        return data
+
+    lines = data.splitlines()
+    normalized = []
+    for line in lines:
+        fields = line.split()
+        if (
+            len(fields) == 5
+            and fields[0].casefold() in ("chip", "fast", "total")
+            and all(field.isdigit() for field in fields[1:])
+        ):
+            # Available, In-Use and Largest necessarily include the memory
+            # occupied by the command's launcher. Maximum is stable and is
+            # retained along with the memory type and table structure.
+            normalized.append(f"{fields[0].casefold()} maximum={fields[3]}")
+        else:
+            normalized.append(line)
+    return "\n".join(normalized) + ("\n" if data.endswith("\n") else "")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("results", type=Path)
@@ -49,14 +72,21 @@ def main() -> int:
         mismatch = []
         if native_rc != amshell_rc:
             mismatch.append(f"RC native={native_rc!r} amshell={amshell_rc!r}")
-        if native_out != amshell_out:
+        if comparable_output(command, native_out) != comparable_output(
+            command, amshell_out
+        ):
             mismatch.append("output differs")
 
         if mismatch:
             print(f"FAIL {case_id}: {'; '.join(mismatch)} :: {command}")
             failures += 1
         else:
-            print(f"PASS {case_id}: {command}")
+            note = (
+                " (volatile Avail counters normalized)"
+                if command.casefold() == "avail"
+                else ""
+            )
+            print(f"PASS {case_id}: {command}{note}")
 
     if failures:
         print(f"RESULT: FAIL ({failures}/{total} cases differ)")

@@ -1,0 +1,11 @@
+PASS 001: Echo AmShell-compat
+PASS 002: Version
+PASS 003: Avail (volatile Avail counters normalized)
+PASS 004: Assign
+PASS 005: CD
+PASS 006: FailAt 10
+PASS 007: Echo "quoted argument"
+PASS 008: Echo redirection-test >T:AmShell-compat.out
+PASS 009: Type T:AmShell-compat.out
+PASS 010: Delete T:AmShell-compat.out QUIET
+RESULT: PASS (10/10 cases equivalent)

@@ -1,0 +1,5 @@
+1e13bf9dd37dc28523e376f31500b4cf82893639582ccce3e60c2fc07806ca13  AmShell
+dabe697af7de301e59957cb1289243a168305e5a8ef45e7562ea932e19016f0f  CompatNative
+
+Both files were identified by file(1) as AmigaOS loadseg()-able binaries and
+by m68k-amigaos-objdump as architecture m68k:68000.

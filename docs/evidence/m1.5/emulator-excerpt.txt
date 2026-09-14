@@ -1,0 +1,7 @@
+FS-UAE 3.2.35 (Built for Linux x86-64)
+UAE: KS ROM v2.04 (A500+) rev 37.175 (512k) [390979-01]
+Card 1: Z2 0x00200000 4096K RAM Fast memory
+Card 2: Z2 0x00e90000   64K ROM Filesystem autoconfig
+Memory map after autoconfig:
+00000000    2048K/2 =    1024K Chip memory
+00200000    4096K/1 =    4096K Fast memory

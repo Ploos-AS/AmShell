@@ -1,0 +1,24 @@
+Volumes:
+Ram Disk [Mounted]
+Results [Mounted]
+Qualification [Mounted]
+System [Mounted]
+
+Directories:
+REXX           System:S
+CLIPS          Ram Disk:Clipboards
+T              Results:
+ENV            Ram Disk:env
+ENVARC         System:Prefs/Env-Archive
+SYS            System:
+C              System:C
+S              System:S
+LIBS           System:Libs
+DEVS           System:Devs
+FONTS          System:Fonts
+L              System:L
+
+Devices:
+PIPE AUX SPEAK RAM CON
+RAW SER PAR PRT DH0
+DF0 DH1 DH2 

@@ -26,7 +26,10 @@ The prepared guest files are written below `build/compat/`.
 
 Copy the complete prepared `build/compat/` directory to the Amiga guest, preserving its `cases/` subdirectory, and ensure the current directory is that directory.
 
-Place the M1.4 `AmShell` binary on the command path or adjust `--amshell` when preparing the scripts.
+Place the M1.4 `AmShell` binary and the 68000 `CompatNative` capture launcher
+on the command path, or adjust `--amshell` and `--native-launcher` when
+preparing the scripts. `make compat-bundle` packages both automatically for
+the M1.5 procedure.
 
 On the target AmigaOS environment run:
 
@@ -45,9 +48,20 @@ python3 tools/compat_compare.py RESULTS_DIR --manifest build/compat/manifest.txt
 
 A qualification PASS requires every collected case to have equivalent output and RC.
 
+The `Avail` case is the one command-specific normalization: its memory type,
+table structure and `Maximum` values are compared, while `Available`, `In-Use`
+and `Largest` are retained as evidence but excluded from equality. Those three
+values necessarily include the different capture-launcher process footprints.
+
 ## Compatibility integrity
 
-The native reference path uses one generated command file per testcase. This prevents the harness from appending capture syntax directly to the command under test, which would alter cases that already contain redirection.
+The native reference path uses one generated command file per testcase. The
+68000 `CompatNative` capture launcher reads that file as opaque command text and
+passes it to the original Shell with an explicit output handle. This prevents
+the harness from appending capture syntax directly to the command under test,
+which would alter cases that already contain redirection. It also avoids the
+AmigaDOS V40-and-earlier limitation where redirection on the CLI `Execute`
+command does not redirect commands subsequently read from its script.
 
 The AmShell path receives the original command text through its `-c` interface. Harness redirection is outside that command text.
 

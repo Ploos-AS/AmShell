@@ -1,0 +1,10 @@
+001	Echo AmShell-compat
+002	Version
+003	Avail
+004	Assign
+005	CD
+006	FailAt 10
+007	Echo "quoted argument"
+008	Echo redirection-test >T:AmShell-compat.out
+009	Type T:AmShell-compat.out
+010	Delete T:AmShell-compat.out QUIET
