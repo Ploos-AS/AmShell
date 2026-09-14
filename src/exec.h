@@ -3,5 +3,6 @@
 
 long amshell_execute(const char *command);
 long amshell_execute_file(const char *path);
+long amshell_execute_file_args(const char *path, int argc, char **argv);
 
 #endif
