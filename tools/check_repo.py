@@ -54,6 +54,12 @@ def main() -> int:
         fail("entrypoint has no version identifier")
     if 'strcmp(argv[1], "-c")' not in source:
         fail("entrypoint has no -c execution path")
+    if "interactive_loop" not in source:
+        fail("entrypoint has no interactive command loop")
+    if "last_rc" not in source:
+        fail("interactive session does not retain the last return code")
+    if "fgets(" not in source:
+        fail("interactive session has no line-input path")
 
     backend = (ROOT / "src/exec.c").read_text(encoding="utf-8")
     if "SystemTagList" not in backend:
@@ -61,7 +67,7 @@ def main() -> int:
     if "SYS_UserShell" not in backend:
         fail("execution backend does not explicitly select Shell compatibility")
 
-    print("PASS: AmShell M1.1 repository checks")
+    print("PASS: AmShell M1.2 repository checks")
     return 0
 
 
