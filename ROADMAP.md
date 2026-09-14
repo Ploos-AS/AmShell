@@ -31,10 +31,12 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 - [x] M1.7 command-file argument forwarding implementation and seed `.KEY` fixture
 - [x] reproducible M1.7 script-argument qualification bundle and comparator
 - [x] defer M1.7 runtime execution to combined M1 final qualification
-- [ ] broaden M1.7 fixtures with `/N`, `/S`, defaults and `.BRA`/`.KET`
+- [x] M1.9 broaden script fixtures with `/N`, `/S`, defaults and `.BRA`/`.KET`
 - [x] M1.8 native `ENDCLI`/`ENDSHELL` termination semantics
 - [x] M1.8 persistent exact quoted-path `CD` baseline
-- [ ] complete remaining patterned/implied `CD` compatibility surface
+- [x] M1.10 explicit patterned `CD` state transfer via native V36 matcher
+- [x] M1.10 path-like implied `CD` state transfer
+- [ ] qualify bare-name implied `CD` command-vs-directory precedence
 - [ ] combined M1 final visible-FS-UAE differential qualification
 
 ### M1.1 — non-interactive execution baseline
@@ -61,14 +63,9 @@ This is deliberately conservative. Quoted or compound `CD` command lines contain
 
 ### M1.5 — reproducible runtime qualification package
 
-`tools/compat_bundle.py` packages the compatibility corpus, native and AmShell
-runners, manifest, guest runner, 68000 binaries and instructions into
-`build/m1.5-qualification/`.
+`tools/compat_bundle.py` packages the compatibility corpus, native and AmShell runners, manifest, guest runner, 68000 binaries and instructions into `build/m1.5-qualification/`.
 
-The first visible FS-UAE/AmigaOS 2.04 qualification passed 10/10 cases on an
-A500/68000 profile on 2026-09-14. The exact comparator verdict and raw guest
-evidence are recorded in `docs/M1_5_QUALIFICATION.md` and
-`docs/evidence/m1.5/`.
+The first visible FS-UAE/AmigaOS 2.04 qualification passed 10/10 cases on an A500/68000 profile on 2026-09-14. The exact comparator verdict and raw guest evidence are recorded in `docs/M1_5_QUALIFICATION.md` and `docs/evidence/m1.5/`.
 
 ### M1.6 — native command-file execution baseline
 
@@ -82,39 +79,45 @@ AmShell delegates the file to native `EXECUTE` through the existing system-Shell
 
 `tools/script_compat_bundle.py` packages a native `EXECUTE` reference path and an AmShell candidate path for the same `basic.script`. `tools/script_compat_compare.py` compares captured output and RC, normalizing only the same documented volatile `Avail` counters used in M1.5. Host smoke tests are part of `make check`.
 
-The M1.6 command-file differential qualification passed on visible
-FS-UAE 3.2.35 with the A500/68000 Kickstart and Workbench 2.04 profile on
-2026-09-14. Native `EXECUTE` and `AmShell basic.script` returned the same RC
-and equivalent stable output. See `docs/M1_6_QUALIFICATION.md` for the raw
-evidence and exact comparator verdict.
+The M1.6 command-file differential qualification passed on visible FS-UAE 3.2.35 with the A500/68000 Kickstart and Workbench 2.04 profile on 2026-09-14. Native `EXECUTE` and `AmShell basic.script` returned the same RC and equivalent stable output. See `docs/M1_6_QUALIFICATION.md` for the raw evidence and exact comparator verdict.
 
 ### M1.7 — native command-file arguments and `.KEY`
 
-AmShell now accepts:
+AmShell accepts:
 
 ```text
 AmShell scriptfile arg1 arg2 ...
 ```
 
-AmShell only reconstructs the outer `EXECUTE` invocation, quoting each received argument using AmigaDOS escaping. `.KEY` parsing, substitution and failure behavior remain native AmigaDOS responsibilities. The seed differential fixture is `tests/compat/scripts/args.script`.
+AmShell only reconstructs the outer `EXECUTE` invocation, quoting each received argument using AmigaDOS escaping. `.KEY` parsing, substitution and failure behavior remain native AmigaDOS responsibilities.
 
-`tests/compat/script_args_cases.tsv` defines the first argument matrix. `tools/script_args_compat_bundle.py` packages direct native `EXECUTE` and AmShell candidate runs for each case, while `tools/script_args_compat_compare.py` requires identical captured output and RC. The baseline covers required/optional positional values, `/K`, quoted spaces and missing `/A`. No output normalization is used.
-
-The runtime harness is ready, but execution is deliberately deferred to the combined M1 final qualification. This avoids repeated manual FS-UAE cycles while preserving the rule that no deferred case is called PASS before actual guest evidence exists. See `docs/M1_7_RUNTIME_QUALIFICATION.md`.
-
-Dedicated `/N`, `/S`, default and `.BRA`/`.KET` fixtures remain to be added before the combined M1 verdict.
+`tests/compat/script_args_cases.tsv` and `tools/script_args_compat_bundle.py` package direct native `EXECUTE` and AmShell candidate runs. `tools/script_args_compat_compare.py` requires identical captured output and RC. Runtime execution remains deliberately deferred to the combined M1 final qualification.
 
 ### M1.8 — interactive session compatibility
 
-AmShell now follows the original Shell's termination commands: standalone `ENDCLI` and `ENDSHELL` terminate the AmShell interactive loop. The previous special handling of `EXIT` has been removed so `EXIT` is once again ordinary delegated command text.
+AmShell follows the original Shell's termination commands: standalone `ENDCLI` and `ENDSHELL` terminate the AmShell interactive loop. The previous special handling of `EXIT` was removed so `EXIT` is ordinary delegated command text.
 
-Persistent `CD` handling now accepts exact quoted paths (including spaces and AmigaDOS `*"`/`**` escapes), trims surrounding whitespace and continues to support exact paths that `Lock()` resolves such as `/`, `//`, `:` and device/assign paths. Pattern/compound syntax remains delegated unchanged rather than being reimplemented by AmShell.
+Persistent exact `CD` handling accepts quoted paths, trims surrounding whitespace and supports paths that `Lock()` resolves, including `/`, `//`, `:` and device/assign paths. Invalid and non-directory targets are delegated to native Shell diagnostics.
 
-The remaining pattern/implied-CD state-transfer gap is intentionally tracked for completion before the combined M1 final qualification. See `docs/M1_8_SESSION_COMPATIBILITY.md`.
+### M1.9 — extended native script surface
+
+The deferred script-argument qualification corpus now includes native AmigaDOS behavior for `/N`, `/S`, invalid numeric input, `.DEF`, inline defaults, and `.BRA`/`.KET`. The same multi-fixture harness compares native `EXECUTE` with AmShell on stdout and RC without replacing native script semantics.
+
+See `docs/M1_9_EXTENDED_SCRIPT_SURFACE.md`.
+
+### M1.10 — patterned and implied `CD`
+
+Explicit patterned `CD` now uses native V36+ `MatchFirst()` / `MatchNext()` / `MatchEnd()` rather than an AmShell wildcard parser. Only directory matches count, and exactly one directory must match before AmShell installs the resolved lock as its own current directory. Ambiguous, failed or interrupted matches are delegated back to the original system Shell for native diagnostics and RC.
+
+Path-like implied `CD` is also transferred into AmShell state when a standalone token containing `:` or `/` resolves to a directory. This covers forms such as `SYS:Tools`, `/`, `//` and `:`. Pattern matching remains disallowed for implied `CD`, matching native Shell documentation.
+
+Bare-name implied `CD` such as `Tools` is still deferred because command lookup versus directory-name precedence must be differentially qualified before AmShell can intercept it without compatibility risk.
+
+See `docs/M1_10_PATTERNED_IMPLIED_CD.md`.
 
 ### M1 final qualification
 
-Before M1 is declared complete, run one combined visible FS-UAE qualification on the A500/68000 + AmigaOS 2.04 baseline. It must include regression of already-qualified M1.5/M1.6 behavior plus deferred M1.7 script arguments and M1.8 session-state/termination cases. Any unqualified behavior remains explicitly pending until that run produces recorded evidence.
+Before M1 is declared complete, run one combined visible FS-UAE qualification on the A500/68000 + AmigaOS 2.04 baseline. It must include regression of already-qualified M1.5/M1.6 behavior plus deferred M1.7/M1.9 script arguments, M1.8 termination/state cases, M1.10 patterned/path-like implied `CD`, and bare-name implied-CD precedence. Any unqualified behavior remains explicitly pending until that run produces recorded evidence.
 
 No enhanced syntax is allowed to compromise M1 compatibility.
 
