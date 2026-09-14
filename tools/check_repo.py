@@ -19,6 +19,9 @@ REQUIRED_FILES = (
     "tests/compat/cases.txt",
     "tests/compat/scripts/basic.script",
     "tests/compat/scripts/args.script",
+    "tests/compat/scripts/args_types.script",
+    "tests/compat/scripts/args_defaults.script",
+    "tests/compat/scripts/args_brackets.script",
     "tests/compat/script_args_cases.tsv",
     "tests/test_compat_tools.py",
     "tests/test_script_compat.py",
@@ -42,6 +45,7 @@ REQUIRED_FILES = (
     "docs/M1_7_SCRIPT_ARGUMENTS.md",
     "docs/M1_7_RUNTIME_QUALIFICATION.md",
     "docs/M1_8_SESSION_COMPATIBILITY.md",
+    "docs/M1_9_EXTENDED_SCRIPT_SURFACE.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -104,7 +108,7 @@ def main() -> int:
     if "amshell_session_execute" not in source:
         fail("interactive loop bypasses session-state execution")
     if "amshell_execute_file_args" not in source:
-        fail("entrypoint has no M1.7 command-file argument path")
+        fail("entrypoint has no command-file argument path")
     if "amshell_session_should_exit" not in source:
         fail("interactive loop does not use native ENDCLI/ENDSHELL termination detection")
     if 'strcmp(line, "exit")' in source or 'strcmp(line, "EXIT")' in source:
@@ -120,7 +124,7 @@ def main() -> int:
     if "amshell_execute_file_args" not in backend:
         fail("execution backend has no command-file argument entrypoint")
     if "append_quoted_arg" not in backend:
-        fail("M1.7 argument forwarding lacks AmigaDOS-safe quoting")
+        fail("argument forwarding lacks AmigaDOS-safe quoting")
 
     session = (ROOT / "src/session.c").read_text(encoding="utf-8")
     if "CurrentDir" not in session or "Lock(" not in session:
@@ -128,7 +132,7 @@ def main() -> int:
     if "contains_shell_or_pattern_syntax" not in session:
         fail("session CD handling lacks conservative pattern/syntax guard")
     if "parse_exact_cd_path" not in session:
-        fail("session CD handling lacks M1.8 exact quoted-path support")
+        fail("session CD handling lacks exact quoted-path support")
     for command in ("ENDCLI", "ENDSHELL"):
         if command not in session:
             fail(f"session termination detection missing native command: {command}")
@@ -150,12 +154,25 @@ def main() -> int:
         if marker not in args_fixture:
             fail(f"M1.7 script-argument fixture missing marker: {marker}")
 
+    types_fixture = (ROOT / "tests/compat/scripts/args_types.script").read_text(encoding="utf-8")
+    if "/N" not in types_fixture or "/S" not in types_fixture:
+        fail("extended script fixture lacks /N or /S coverage")
+    defaults_fixture = (ROOT / "tests/compat/scripts/args_defaults.script").read_text(encoding="utf-8")
+    if ".DEF" not in defaults_fixture or "$fallback" not in defaults_fixture:
+        fail("extended script fixture lacks default coverage")
+    brackets_fixture = (ROOT / "tests/compat/scripts/args_brackets.script").read_text(encoding="utf-8")
+    if ".BRA" not in brackets_fixture or ".KET" not in brackets_fixture:
+        fail("extended script fixture lacks .BRA/.KET coverage")
+
     arg_cases = [
         line for line in (ROOT / "tests/compat/script_args_cases.tsv").read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
-    if len(arg_cases) < 6:
-        fail("M1.7 script-argument corpus is too small")
+    if len(arg_cases) < 14:
+        fail("extended script-argument corpus is too small")
+    for raw in arg_cases:
+        if len(raw.split("\t")) != 3:
+            fail("script-argument corpus must use id/script/arguments columns")
 
     prepare = (ROOT / "tools/compat_prepare.py").read_text(encoding="utf-8")
     compare = (ROOT / "tools/compat_compare.py").read_text(encoding="utf-8")
@@ -182,14 +199,17 @@ def main() -> int:
         fail("M1.6 script bundle uses unsupported numbered AmigaDOS redirection")
 
     if "RESULT: FAIL" not in args_compare or "RESULT: PASS" not in args_compare:
-        fail("M1.7 argument comparator has no explicit verdict")
+        fail("script-argument comparator has no explicit verdict")
     for marker in ("m1.7-qualification", "script_args_cases.tsv", "run-qualification.script"):
         if marker not in args_bundle:
-            fail(f"M1.7 argument bundle missing marker: {marker}")
+            fail(f"script-argument bundle missing marker: {marker}")
     if "2>NIL:" in args_bundle:
-        fail("M1.7 argument bundle uses unsupported numbered AmigaDOS redirection")
+        fail("script-argument bundle uses unsupported numbered AmigaDOS redirection")
+    for marker in ("script, arguments", "sorted({script", "Execute {script}"):
+        if marker not in args_bundle:
+            fail(f"multi-fixture argument bundle missing marker: {marker}")
 
-    print("PASS: AmShell M1.8 repository and deferred-runtime checks")
+    print("PASS: AmShell M1.9 repository and deferred-qualification checks")
     return 0
 
 
