@@ -2,8 +2,8 @@
  * AmShell - modern interactive shell for classic AmigaOS.
  *
  * Compatibility rule: ordinary command text is handed to the system Shell
- * for AmigaDOS parsing/execution.  AmShell must not reinterpret established
- * syntax while the compatible execution core is being built.
+ * for AmigaDOS parsing/execution. AmShell only intercepts narrowly defined
+ * session-state operations that cannot persist through a child Shell.
  */
 
 #include <dos/dos.h>
@@ -11,8 +11,9 @@
 #include <string.h>
 
 #include "exec.h"
+#include "session.h"
 
-#define AMSHELL_VERSION "0.1.0-m1.2"
+#define AMSHELL_VERSION "0.1.0-m1.3"
 #define AMSHELL_LINE_MAX 1024
 
 static void print_usage(const char *program)
@@ -51,15 +52,12 @@ static int interactive_loop(void)
             continue;
         }
 
-        /*
-         * EXIT is the only M1.2 interactive control command.  Other command
-         * text remains opaque and is delegated to the system Shell.
-         */
+        /* EXIT remains the only interactive control command. */
         if (strcmp(line, "exit") == 0 || strcmp(line, "EXIT") == 0) {
             break;
         }
 
-        last_rc = amshell_execute(line);
+        last_rc = amshell_session_execute(line);
         if (last_rc < 0) {
             fputs("AmShell: unable to launch system Shell\n", stderr);
             last_rc = RETURN_FAIL;
