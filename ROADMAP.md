@@ -29,7 +29,9 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 - [x] reproducible M1.6 command-file qualification bundle and comparator
 - [x] M1.6 command-file runtime differential qualification on visible FS-UAE
 - [x] M1.7 command-file argument forwarding implementation and seed `.KEY` fixture
+- [x] reproducible M1.7 script-argument qualification bundle and comparator
 - [ ] M1.7 command-file arguments / `.KEY` differential runtime qualification
+- [ ] broaden M1.7 fixtures with `/N`, `/S`, defaults and `.BRA`/`.KET`
 - [ ] broaden `CD` compatibility beyond the conservative standalone baseline
 
 ### M1.1 — non-interactive execution baseline
@@ -93,9 +95,11 @@ AmShell scriptfile arg1 arg2 ...
 
 AmShell only reconstructs the outer `EXECUTE` invocation, quoting each received argument using AmigaDOS escaping. `.KEY` parsing, substitution and failure behavior remain native AmigaDOS responsibilities. The seed differential fixture is `tests/compat/scripts/args.script`.
 
-Runtime qualification remains pending. The qualification corpus must compare direct native `EXECUTE` with AmShell for positional, optional and keyword arguments, spaces/escaping and missing required arguments before M1.7 can be marked complete. `/N`, `/S`, defaults and `.BRA`/`.KET` should also be included before the final M1.7 verdict.
+`tests/compat/script_args_cases.tsv` defines the first argument matrix. `tools/script_args_compat_bundle.py` packages direct native `EXECUTE` and AmShell candidate runs for each case, while `tools/script_args_compat_compare.py` requires identical captured output and RC. The baseline covers required/optional positional values, `/K`, quoted spaces and missing `/A`. No output normalization is used.
 
-See `docs/M1_7_SCRIPT_ARGUMENTS.md`.
+Runtime qualification remains pending. Run `make script-args-compat-bundle`, execute the generated qualification script on visible FS-UAE/AmigaOS 2.04, collect `T:AmShellM17/`, and run the host comparator. See `docs/M1_7_RUNTIME_QUALIFICATION.md`.
+
+After this baseline passes, add dedicated `/N`, `/S`, default and `.BRA`/`.KET` fixtures before declaring the broader M1 script-argument compatibility surface complete.
 
 No enhanced syntax is allowed to compromise M1 compatibility.
 
