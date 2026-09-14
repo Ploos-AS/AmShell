@@ -23,7 +23,8 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 - [x] non-interactive `-c` execution
 - [ ] basic command-file execution
 - [x] seed original-Shell differential compatibility corpus
-- [ ] automated runtime differential comparison against original Shell
+- [x] automated differential harness and result comparator
+- [ ] run and record first AmigaOS/FS-UAE differential qualification
 - [ ] broaden `CD` compatibility beyond the conservative standalone baseline
 
 ### M1.1 — non-interactive execution baseline
@@ -36,11 +37,19 @@ AmShell provides a minimal interactive read/execute loop. Ordinary command lines
 
 ### M1.3 — persistent directory baseline and compatibility corpus
 
-Simple standalone `CD path` now updates AmShell's own process current directory using AmigaDOS `Lock()`/`CurrentDir()`, so later child Shell invocations inherit it.
+Simple standalone `CD path` updates AmShell's own process current directory using AmigaDOS `Lock()`/`CurrentDir()`, so later child Shell invocations inherit it.
 
 This is deliberately conservative. Quoted or compound `CD` command lines containing shell syntax remain untouched and are delegated to the native Shell. Full original-Shell `CD` syntax equivalence is not claimed yet.
 
 `tests/compat/cases.txt` seeds the differential compatibility corpus for native Shell versus AmShell runtime comparison.
+
+### M1.4 — automated differential harness
+
+`tools/compat_prepare.py` generates native-reference and AmShell-candidate guest scripts from the same canonical corpus. Native commands are preserved in individual command files so capture logic does not alter the tested command text.
+
+`tools/compat_compare.py` compares collected deterministic stdout and RC observations and emits an explicit PASS/FAIL verdict. Host-side smoke tests cover preparation, equivalence and deliberate mismatch detection.
+
+M1.4 provides the harness; an actual AmigaOS/FS-UAE runtime PASS is a separate qualification step and is not claimed until evidence has been collected.
 
 No enhanced syntax is allowed to compromise M1 compatibility.
 
