@@ -1,0 +1,16 @@
+# AmShell M1 differential compatibility corpus
+#
+# Format: one command line per non-comment line. Runtime qualification will
+# execute each line through the native Shell and through AmShell and compare
+# return code plus selected observable effects/output where deterministic.
+
+Echo AmShell-compat
+Version
+Avail
+Assign
+CD
+FailAt 10
+Echo "quoted argument"
+Echo redirection-test >T:AmShell-compat.out
+Type T:AmShell-compat.out
+Delete T:AmShell-compat.out QUIET
