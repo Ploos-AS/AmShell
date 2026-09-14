@@ -18,6 +18,7 @@ REQUIRED_FILES = (
     "src/session.h",
     "tests/compat/cases.txt",
     "tests/compat/scripts/basic.script",
+    "tests/compat/scripts/args.script",
     "tests/test_compat_tools.py",
     "tests/test_script_compat.py",
     "tools/compat_prepare.py",
@@ -34,6 +35,7 @@ REQUIRED_FILES = (
     "docs/M1_6_COMMAND_FILE_EXECUTION.md",
     "docs/M1_6_RUNTIME_QUALIFICATION.md",
     "docs/M1_6_QUALIFICATION.md",
+    "docs/M1_7_SCRIPT_ARGUMENTS.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -85,18 +87,20 @@ def main() -> int:
         fail("interactive session does not retain the last return code")
     if "amshell_session_execute" not in source:
         fail("interactive loop bypasses session-state execution")
-    if "amshell_execute_file" not in source:
-        fail("entrypoint has no M1.6 command-file execution path")
+    if "amshell_execute_file_args" not in source:
+        fail("entrypoint has no M1.7 command-file argument path")
 
     backend = (ROOT / "src/exec.c").read_text(encoding="utf-8")
     if "SystemTagList" not in backend:
         fail("execution backend does not delegate to AmigaDOS SystemTagList")
     if "SYS_UserShell" not in backend:
         fail("execution backend does not explicitly select Shell compatibility")
-    if "Execute \\\"" not in backend:
+    if 'strcpy(command, "Execute ")' not in backend:
         fail("command-file backend does not delegate scripts to native EXECUTE")
-    if "amshell_execute_file" not in backend:
-        fail("execution backend has no command-file entrypoint")
+    if "amshell_execute_file_args" not in backend:
+        fail("execution backend has no command-file argument entrypoint")
+    if "append_quoted_arg" not in backend:
+        fail("M1.7 argument forwarding lacks AmigaDOS-safe quoting")
 
     session = (ROOT / "src/session.c").read_text(encoding="utf-8")
     if "CurrentDir" not in session or "Lock(" not in session:
@@ -115,6 +119,11 @@ def main() -> int:
     script_fixture = (ROOT / "tests/compat/scripts/basic.script").read_text(encoding="utf-8")
     if "Echo AmShell-script-start" not in script_fixture or "Echo AmShell-script-end" not in script_fixture:
         fail("M1.6 command-file fixture is incomplete")
+
+    args_fixture = (ROOT / "tests/compat/scripts/args.script").read_text(encoding="utf-8")
+    for marker in (".KEY FIRST/A,SECOND,MODE/K", "<FIRST>", "<SECOND>", "<MODE>"):
+        if marker not in args_fixture:
+            fail(f"M1.7 script-argument fixture missing marker: {marker}")
 
     prepare = (ROOT / "tools/compat_prepare.py").read_text(encoding="utf-8")
     compare = (ROOT / "tools/compat_compare.py").read_text(encoding="utf-8")
@@ -137,7 +146,7 @@ def main() -> int:
     if "2>NIL:" in script_bundle:
         fail("M1.6 script bundle uses unsupported numbered AmigaDOS redirection")
 
-    print("PASS: AmShell M1.6 repository and runtime-harness checks")
+    print("PASS: AmShell M1.7 repository checks")
     return 0
 
 
