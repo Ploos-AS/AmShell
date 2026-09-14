@@ -1,0 +1,5 @@
+; Basic AmigaDOS command-file fixture for M1.6
+Echo AmShell-script-start
+Version
+Avail
+Echo AmShell-script-end
