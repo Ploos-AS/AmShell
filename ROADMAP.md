@@ -26,7 +26,8 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 - [x] automated differential harness and result comparator
 - [x] reproducible M1.5 AmigaOS/FS-UAE qualification bundle
 - [x] run and record first AmigaOS/FS-UAE differential qualification
-- [ ] M1.6 command-file runtime differential qualification
+- [x] reproducible M1.6 command-file qualification bundle and comparator
+- [ ] M1.6 command-file runtime differential qualification on visible FS-UAE
 - [ ] command-file arguments / `.KEY` substitution qualification
 - [ ] broaden `CD` compatibility beyond the conservative standalone baseline
 
@@ -65,7 +66,7 @@ evidence are recorded in `docs/M1_5_QUALIFICATION.md` and
 
 ### M1.6 — native command-file execution baseline
 
-A single non-option argument now runs an AmigaDOS command file:
+A single non-option argument runs an AmigaDOS command file:
 
 ```text
 AmShell scriptfile
@@ -73,7 +74,11 @@ AmShell scriptfile
 
 AmShell delegates the file to native `EXECUTE` through the existing system-Shell backend. It does not parse the script itself, so established AmigaDOS command-file semantics remain owned by AmigaDOS. The initial scope intentionally excludes command-file arguments until `.KEY`/substitution behaviour has been differentially qualified.
 
-See `docs/M1_6_COMMAND_FILE_EXECUTION.md` and `tests/compat/scripts/basic.script`.
+`tools/script_compat_bundle.py` packages a native `EXECUTE` reference path and an AmShell candidate path for the same `basic.script`. `tools/script_compat_compare.py` compares captured output and RC, normalizing only the same documented volatile `Avail` counters used in M1.5. Host smoke tests are part of `make check`.
+
+The M1.6 runtime harness is ready, but runtime PASS is not claimed until the bundle has been run on visible FS-UAE/AmigaOS and guest evidence has been compared successfully.
+
+See `docs/M1_6_COMMAND_FILE_EXECUTION.md`, `docs/M1_6_RUNTIME_QUALIFICATION.md` and `tests/compat/scripts/basic.script`.
 
 No enhanced syntax is allowed to compromise M1 compatibility.
 
