@@ -33,9 +33,27 @@ while IFS= read -r -d '' script; do
     "$script"
 done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
 
-# Fail before boot if the staged scripts still contain transient evidence paths.
+# AROS Execute has proven unreliable with a fully-qualified command-file
+# argument even when that file exists on the mounted SYS: volume. The combined
+# script already CD's into each sub-bundle before Execute, so patch only the
+# staged CI copy to execute the local command-file name. This leaves the normal
+# AmigaOS qualification bundle unchanged.
+final_script="$aros_root/qualification/run-m1-final.script"
+sed -i \
+  -e 's#Execute SYS:qualification/m1.5/run-qualification.script#Execute run-qualification.script#' \
+  -e 's#Execute SYS:qualification/m1.6/run-qualification.script#Execute run-qualification.script#' \
+  -e 's#Execute SYS:qualification/m1.7-m1.9/run-qualification.script#Execute run-qualification.script#' \
+  -e 's#Execute SYS:qualification/m1.11/run-native-probe.script#Execute run-native-probe.script#' \
+  "$final_script"
+
+# Fail before boot if transient output paths or known-bad nested Execute forms
+# remain in the staged guest scripts.
 if grep -R -n -E 'T:AmShell(Compat|M16|M17)' "$aros_root/qualification" --include='*.script'; then
   echo "ERROR: transient qualification evidence path remained after CI rewrite" >&2
+  exit 1
+fi
+if grep -n -E '^Execute SYS:qualification/m1\.(5|6|7-m1\.9|11)/' "$final_script"; then
+  echo "ERROR: fully-qualified nested Execute remained after CI rewrite" >&2
   exit 1
 fi
 
@@ -50,15 +68,11 @@ SYS:C/MakeDir SYS:qualification-results/m1.6 >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.7-m1.9 >NIL:
 SYS:C/Echo "persistent-results-ready" >SYS:amshell-ci-stage.txt
 
-; Execute command files from their current directory. This is the same form
-; used by the standalone qualification procedure and avoids AROS Execute path
-; resolution differences seen with a fully-qualified SYS: script argument.
 CD SYS:qualification
 SYS:C/Echo "qualification-execute" >SYS:amshell-ci-stage.txt
 SYS:C/Execute run-m1-final.script >SYS:amshell-ci-console.txt
 SYS:C/Echo $RC >SYS:amshell-ci-rc.txt
 
-; Do not report guest completion unless the combined script really returned 0.
 IF WARN
   SYS:C/Echo "qualification-failed" >SYS:amshell-ci-stage.txt
 ELSE
@@ -88,9 +102,15 @@ set -e
 
 status=FAIL
 observation=guest_result_missing
-if [[ -f "$aros_root/amshell-ci-complete.txt" ]]; then
+guest_rc=""
+if [[ -f "$aros_root/amshell-ci-rc.txt" ]]; then
+  guest_rc="$(tr -d '\r\n ' < "$aros_root/amshell-ci-rc.txt")"
+fi
+if [[ -f "$aros_root/amshell-ci-complete.txt" && "$guest_rc" == "0" ]]; then
   status=PASS
   observation=combined_m1_guest_bundle_completed
+elif [[ -n "$guest_rc" ]]; then
+  observation="combined_m1_guest_rc_${guest_rc}"
 fi
 
 results="$OUT/results"
@@ -111,8 +131,9 @@ cp "$aros_root/amshell-ci-rc.txt" "$OUT/guest-rc.txt" 2>/dev/null || true
 cp "$aros_root/amshell-ci-stage.txt" "$OUT/guest-stage.txt" 2>/dev/null || true
 cp "$aros_root/amshell-m1-stage.txt" "$OUT/m1-stage.txt" 2>/dev/null || true
 
-compare_status=PASS
+compare_status=NOT_RUN
 if [[ "$status" == PASS ]]; then
+  compare_status=PASS
   python3 tools/compat_compare.py "$results/m1.5" --manifest build/m1-final-qualification/m1.5/compat/manifest.txt | tee "$OUT/m1.5-compare.txt" || compare_status=FAIL
   python3 tools/script_compat_compare.py "$results/m1.6" | tee "$OUT/m1.6-compare.txt" || compare_status=FAIL
   python3 tools/script_args_compat_compare.py "$results/m1.7-m1.9" | tee "$OUT/m1.7-m1.9-compare.txt" || compare_status=FAIL
@@ -130,8 +151,8 @@ fi
   if [[ -f "$OUT/guest-stage.txt" ]]; then
     echo "GUEST_STAGE=$(tr -d '\r\n' < "$OUT/guest-stage.txt")"
   fi
-  if [[ -f "$OUT/guest-rc.txt" ]]; then
-    echo "GUEST_RC=$(tr -d '\r\n' < "$OUT/guest-rc.txt")"
+  if [[ -n "$guest_rc" ]]; then
+    echo "GUEST_RC=$guest_rc"
   fi
   if [[ -f "$OUT/m1-stage.txt" ]]; then
     echo "M1_STAGE=$(tr -d '\r\n' < "$OUT/m1-stage.txt")"
