@@ -9,7 +9,7 @@ CPPFLAGS :=
 CFLAGS ?= -Os -Wall -Wextra -Werror -m68000
 LDFLAGS ?=
 
-.PHONY: all clean check compat-prepare compat-bundle script-compat-bundle script-args-compat-bundle implied-cd-probe-bundle
+.PHONY: all clean check compat-prepare compat-bundle script-compat-bundle script-args-compat-bundle implied-cd-probe-bundle m1-final-bundle
 
 all: $(TARGET)
 
@@ -41,6 +41,9 @@ script-args-compat-bundle: $(TARGET) $(COMPAT_NATIVE_TARGET)
 
 implied-cd-probe-bundle: $(TARGET) $(COMPAT_NATIVE_TARGET)
 	$(PYTHON) tools/implied_cd_probe_bundle.py
+
+m1-final-bundle: $(TARGET) $(COMPAT_NATIVE_TARGET)
+	$(PYTHON) tools/m1_final_bundle.py
 
 clean:
 	rm -rf build
