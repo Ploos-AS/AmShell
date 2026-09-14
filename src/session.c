@@ -235,7 +235,11 @@ static long execute_pattern_cd(const char *line, const char *pattern)
         if (anchor->ap_Info.fib_DirEntryType > 0) {
             ++directory_matches;
             if (directory_matches == 1) {
-                strncpy(matched_path, anchor->ap_Buf, sizeof(matched_path) - 1);
+                strncpy(
+                    matched_path,
+                    (const char *)anchor->ap_Buf,
+                    sizeof(matched_path) - 1
+                );
                 matched_path[sizeof(matched_path) - 1] = '\0';
             }
         }
