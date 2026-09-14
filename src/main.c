@@ -13,12 +13,12 @@
 #include "exec.h"
 #include "session.h"
 
-#define AMSHELL_VERSION "0.1.0-m1.6"
+#define AMSHELL_VERSION "0.1.0-m1.7"
 #define AMSHELL_LINE_MAX 1024
 
 static void print_usage(const char *program)
 {
-    printf("Usage: %s [--version] [--help] [-c \"command\"] [command-file]\n", program);
+    printf("Usage: %s [--version] [--help] [-c \"command\"] [command-file [args...]]\n", program);
 }
 
 static void trim_line_end(char *line)
@@ -96,8 +96,10 @@ int main(int argc, char **argv)
         return normalize_result(amshell_execute(argv[2]));
     }
 
-    if (argc == 2 && argv[1][0] != '-') {
-        return normalize_result(amshell_execute_file(argv[1]));
+    if (argc >= 2 && argv[1][0] != '-') {
+        return normalize_result(
+            amshell_execute_file_args(argv[1], argc - 2, argv + 2)
+        );
     }
 
     fputs("AmShell: unsupported arguments\n", stderr);
