@@ -33,6 +33,12 @@ while IFS= read -r -d '' script; do
     "$script"
 done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
 
+# Fail before boot if the staged scripts still contain transient evidence paths.
+if grep -R -n -E 'T:AmShell(Compat|M16|M17)' "$aros_root/qualification" --include='*.script'; then
+  echo "ERROR: transient qualification evidence path remained after CI rewrite" >&2
+  exit 1
+fi
+
 cat >"$startup" <<'EOF'
 FailAt 21
 SYS:C/Echo "AMSHELL_CI_GUEST_STARTED=1" >SYS:amshell-ci-started.txt
@@ -44,13 +50,21 @@ SYS:C/MakeDir SYS:qualification-results/m1.6 >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.7-m1.9 >NIL:
 SYS:C/Echo "persistent-results-ready" >SYS:amshell-ci-stage.txt
 
+; Execute command files from their current directory. This is the same form
+; used by the standalone qualification procedure and avoids AROS Execute path
+; resolution differences seen with a fully-qualified SYS: script argument.
 CD SYS:qualification
 SYS:C/Echo "qualification-execute" >SYS:amshell-ci-stage.txt
-SYS:C/Execute SYS:qualification/run-m1-final.script >SYS:amshell-ci-console.txt
+SYS:C/Execute run-m1-final.script >SYS:amshell-ci-console.txt
 SYS:C/Echo $RC >SYS:amshell-ci-rc.txt
 
-SYS:C/Echo "AMSHELL_CI_GUEST_COMPLETE=1" >SYS:amshell-ci-complete.txt
-SYS:C/Echo "qualification-complete" >SYS:amshell-ci-stage.txt
+; Do not report guest completion unless the combined script really returned 0.
+IF WARN
+  SYS:C/Echo "qualification-failed" >SYS:amshell-ci-stage.txt
+ELSE
+  SYS:C/Echo "AMSHELL_CI_GUEST_COMPLETE=1" >SYS:amshell-ci-complete.txt
+  SYS:C/Echo "qualification-complete" >SYS:amshell-ci-stage.txt
+ENDIF
 
 SYS:C/Execute SYS:S/Startup-Sequence.amshell-original
 EOF
@@ -115,6 +129,9 @@ fi
   echo "OBSERVATION=$observation"
   if [[ -f "$OUT/guest-stage.txt" ]]; then
     echo "GUEST_STAGE=$(tr -d '\r\n' < "$OUT/guest-stage.txt")"
+  fi
+  if [[ -f "$OUT/guest-rc.txt" ]]; then
+    echo "GUEST_RC=$(tr -d '\r\n' < "$OUT/guest-rc.txt")"
   fi
   if [[ -f "$OUT/m1-stage.txt" ]]; then
     echo "M1_STAGE=$(tr -d '\r\n' < "$OUT/m1-stage.txt")"
