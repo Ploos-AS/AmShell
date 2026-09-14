@@ -60,8 +60,14 @@ int main(int argc, char **argv)
 
     tags[0].ti_Tag = SYS_Output;
     tags[0].ti_Data = (ULONG)output;
+    /*
+     * Match AmShell's compatibility execution path: use the boot/system
+     * Shell rather than a configured UserShell. Besides keeping the native
+     * reference semantically aligned with AmShell, this also avoids AROS
+     * UserShell variants that do not preserve the supplied SYS_Output handle.
+     */
     tags[1].ti_Tag = SYS_UserShell;
-    tags[1].ti_Data = TRUE;
+    tags[1].ti_Data = FALSE;
     tags[2].ti_Tag = TAG_DONE;
     tags[2].ti_Data = 0;
 
