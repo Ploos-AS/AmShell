@@ -9,7 +9,7 @@ CPPFLAGS :=
 CFLAGS ?= -Os -Wall -Wextra -Werror -m68000
 LDFLAGS ?=
 
-.PHONY: all clean check compat-prepare compat-bundle
+.PHONY: all clean check compat-prepare compat-bundle script-compat-bundle
 
 all: $(TARGET)
 
@@ -24,12 +24,16 @@ $(COMPAT_NATIVE_TARGET): tools/compat_native.c
 check:
 	$(PYTHON) tools/check_repo.py
 	$(PYTHON) tests/test_compat_tools.py
+	$(PYTHON) tests/test_script_compat.py
 
 compat-prepare:
 	$(PYTHON) tools/compat_prepare.py
 
 compat-bundle: $(TARGET) $(COMPAT_NATIVE_TARGET)
 	$(PYTHON) tools/compat_bundle.py
+
+script-compat-bundle: $(TARGET) $(COMPAT_NATIVE_TARGET)
+	$(PYTHON) tools/script_compat_bundle.py
 
 clean:
 	rm -rf build
