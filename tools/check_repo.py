@@ -19,14 +19,18 @@ REQUIRED_FILES = (
     "tests/compat/cases.txt",
     "tests/compat/scripts/basic.script",
     "tests/compat/scripts/args.script",
+    "tests/compat/script_args_cases.tsv",
     "tests/test_compat_tools.py",
     "tests/test_script_compat.py",
+    "tests/test_script_args_compat.py",
     "tools/compat_prepare.py",
     "tools/compat_compare.py",
     "tools/compat_bundle.py",
     "tools/compat_native.c",
     "tools/script_compat_compare.py",
     "tools/script_compat_bundle.py",
+    "tools/script_args_compat_compare.py",
+    "tools/script_args_compat_bundle.py",
     "docs/ARCHITECTURE.md",
     "docs/COMPATIBILITY.md",
     "docs/M1_4_DIFFERENTIAL_QUALIFICATION.md",
@@ -36,6 +40,7 @@ REQUIRED_FILES = (
     "docs/M1_6_RUNTIME_QUALIFICATION.md",
     "docs/M1_6_QUALIFICATION.md",
     "docs/M1_7_SCRIPT_ARGUMENTS.md",
+    "docs/M1_7_RUNTIME_QUALIFICATION.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -58,12 +63,22 @@ def main() -> int:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     if "-m68000" not in makefile:
         fail("Makefile does not declare the 68000 baseline")
-    for target in ("check:", "compat-prepare:", "compat-bundle:", "script-compat-bundle:"):
+    for target in (
+        "check:",
+        "compat-prepare:",
+        "compat-bundle:",
+        "script-compat-bundle:",
+        "script-args-compat-bundle:",
+    ):
         if target not in makefile:
             fail(f"Makefile missing target: {target}")
     if "tools/compat_native.c" not in makefile:
         fail("qualification build does not include native Shell capture launcher")
-    for test in ("tests/test_compat_tools.py", "tests/test_script_compat.py"):
+    for test in (
+        "tests/test_compat_tools.py",
+        "tests/test_script_compat.py",
+        "tests/test_script_args_compat.py",
+    ):
         if test not in makefile:
             fail(f"make check does not execute {test}")
     for source in ("src/exec.c", "src/session.c"):
@@ -125,11 +140,21 @@ def main() -> int:
         if marker not in args_fixture:
             fail(f"M1.7 script-argument fixture missing marker: {marker}")
 
+    arg_cases = [
+        line for line in (ROOT / "tests/compat/script_args_cases.tsv").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    if len(arg_cases) < 6:
+        fail("M1.7 script-argument corpus is too small")
+
     prepare = (ROOT / "tools/compat_prepare.py").read_text(encoding="utf-8")
     compare = (ROOT / "tools/compat_compare.py").read_text(encoding="utf-8")
     bundle = (ROOT / "tools/compat_bundle.py").read_text(encoding="utf-8")
     script_compare = (ROOT / "tools/script_compat_compare.py").read_text(encoding="utf-8")
     script_bundle = (ROOT / "tools/script_compat_bundle.py").read_text(encoding="utf-8")
+    args_compare = (ROOT / "tools/script_args_compat_compare.py").read_text(encoding="utf-8")
+    args_bundle = (ROOT / "tools/script_args_compat_bundle.py").read_text(encoding="utf-8")
+
     if "run-native.script" not in prepare or "run-amshell.script" not in prepare:
         fail("differential harness does not prepare both execution paths")
     if "native-{case_id}.script" not in prepare:
@@ -146,7 +171,15 @@ def main() -> int:
     if "2>NIL:" in script_bundle:
         fail("M1.6 script bundle uses unsupported numbered AmigaDOS redirection")
 
-    print("PASS: AmShell M1.7 repository checks")
+    if "RESULT: FAIL" not in args_compare or "RESULT: PASS" not in args_compare:
+        fail("M1.7 argument comparator has no explicit verdict")
+    for marker in ("m1.7-qualification", "script_args_cases.tsv", "run-qualification.script"):
+        if marker not in args_bundle:
+            fail(f"M1.7 argument bundle missing marker: {marker}")
+    if "2>NIL:" in args_bundle:
+        fail("M1.7 argument bundle uses unsupported numbered AmigaDOS redirection")
+
+    print("PASS: AmShell M1.7 repository and runtime-harness checks")
     return 0
 
 
