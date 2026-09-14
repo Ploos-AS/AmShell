@@ -32,54 +32,95 @@ static long run_system_shell(const char *command)
     return (long)SystemTagList((STRPTR)command, tags);
 }
 
-long amshell_execute(const char *command)
+static int append_quoted_arg(char **outp, size_t *remainingp, const char *text)
 {
-    return run_system_shell(command);
-}
-
-long amshell_execute_file(const char *path)
-{
-    char command[AMSHELL_EXEC_LINE_MAX];
-    char *out;
+    char *out = *outp;
+    size_t remaining = *remainingp;
     const char *in;
-    size_t remaining;
 
-    if (path == 0 || *path == '\0') {
-        return RETURN_FAIL;
+    if (remaining <= 2) {
+        return 0;
     }
 
-    /*
-     * Command files remain native AmigaDOS scripts. We invoke C:Execute
-     * rather than reading or parsing the file ourselves, preserving EXECUTE
-     * semantics such as dot commands and parameter substitution.
-     */
-    strcpy(command, "Execute \"");
-    out = command + strlen(command);
-    remaining = sizeof(command) - strlen(command);
+    *out++ = '"';
+    --remaining;
 
-    for (in = path; *in != '\0'; ++in) {
-        if (*in == '"') {
+    for (in = text; *in != '\0'; ++in) {
+        if (*in == '"' || *in == '*') {
             if (remaining <= 2) {
-                return RETURN_FAIL;
+                return 0;
             }
             *out++ = '*';
-            *out++ = '"';
+            *out++ = *in;
             remaining -= 2;
         } else {
             if (remaining <= 1) {
-                return RETURN_FAIL;
+                return 0;
             }
             *out++ = *in;
             --remaining;
         }
     }
 
-    if (remaining <= 2) {
-        return RETURN_FAIL;
+    if (remaining <= 1) {
+        return 0;
     }
 
     *out++ = '"';
+    --remaining;
     *out = '\0';
 
+    *outp = out;
+    *remainingp = remaining;
+    return 1;
+}
+
+long amshell_execute(const char *command)
+{
     return run_system_shell(command);
+}
+
+long amshell_execute_file_args(const char *path, int argc, char **argv)
+{
+    char command[AMSHELL_EXEC_LINE_MAX];
+    char *out;
+    size_t remaining;
+    int i;
+
+    if (path == 0 || *path == '\0' || argc < 0) {
+        return RETURN_FAIL;
+    }
+
+    /*
+     * Command files remain native AmigaDOS scripts. Build only the outer
+     * EXECUTE invocation; .KEY processing and substitution remain owned by
+     * the native Shell/EXECUTE implementation.
+     */
+    strcpy(command, "Execute ");
+    out = command + strlen(command);
+    remaining = sizeof(command) - strlen(command);
+
+    if (!append_quoted_arg(&out, &remaining, path)) {
+        return RETURN_FAIL;
+    }
+
+    for (i = 0; i < argc; ++i) {
+        if (remaining <= 1) {
+            return RETURN_FAIL;
+        }
+        *out++ = ' ';
+        --remaining;
+        *out = '\0';
+
+        if (!append_quoted_arg(&out, &remaining, argv[i])) {
+            return RETURN_FAIL;
+        }
+    }
+
+    return run_system_shell(command);
+}
+
+long amshell_execute_file(const char *path)
+{
+    return amshell_execute_file_args(path, 0, 0);
 }
