@@ -1,0 +1,54 @@
+name: FS-UAE AROS provisional M1 qualification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  aros-m1-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install FS-UAE runtime tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fs-uae xvfb curl lhasa p7zip-full file
+
+      - name: Gate 1 - host regression suite
+        run: make check
+
+      - name: Gate 2 - native Bebbo build and M1 final bundle
+        run: bash ci/fs-uae/build-native.sh
+
+      - name: Gate 3 - combined M1 runtime in AROS guest
+        run: bash ci/fs-uae/run-aros-m1.sh
+
+      - name: Upload provisional qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amshell-fs-uae-aros-m1-provisional
+          path: |
+            build/fs-uae/native/result.txt
+            build/fs-uae/native/toolchain-image.txt
+            build/fs-uae/native/file.txt
+            build/fs-uae/native/sha256.txt
+            build/fs-uae/aros-system/source.txt
+            build/fs-uae/aros-system/archive.sha256
+            build/fs-uae/aros-m1/result.txt
+            build/fs-uae/aros-m1/fs-uae.log
+            build/fs-uae/aros-m1/fs-uae-version.txt
+            build/fs-uae/aros-m1/guest-console.txt
+            build/fs-uae/aros-m1/guest-rc.txt
+            build/fs-uae/aros-m1/m1.5-compare.txt
+            build/fs-uae/aros-m1/m1.6-compare.txt
+            build/fs-uae/aros-m1/m1.7-m1.9-compare.txt
+            build/fs-uae/aros-m1/results/**
+          if-no-files-found: warn
