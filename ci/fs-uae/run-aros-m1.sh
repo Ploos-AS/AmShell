@@ -36,10 +36,14 @@ if grep -R -n -E 'T:AmShell(Compat|M16|M17)' "$aros_root/qualification" --includ
 fi
 
 # AROS has proven unreliable when a qualification command file is launched via
-# Execute. Build one flat Startup-Sequence instead. The individual generated
-# scripts are appended verbatim after the SYS: evidence rewrite. This removes
-# harness-only Execute layers while retaining Execute calls that are themselves
-# part of the compatibility surface under test.
+# Execute. Build one flat Startup-Sequence instead. Local harnesses carry their
+# own FailAt values, but once flattened those would override the CI-wide policy
+# and RC 20 negative cases could abort the complete run. Strip only FailAt lines
+# while appending; the hosted guest remains under the single FailAt 21 below.
+append_flat_script() {
+  sed '/^[[:space:]]*FailAt[[:space:]]/d' "$1" >>"$startup"
+}
+
 cat >"$startup" <<'EOF'
 FailAt 21
 SYS:C/Echo "AMSHELL_CI_GUEST_STARTED=1" >SYS:amshell-ci-started.txt
@@ -58,8 +62,8 @@ Delete SYS:qualification-results/m1.5 ALL QUIET >NIL:
 MakeDir SYS:qualification-results/m1.5 >NIL:
 CD compat
 EOF
-cat "$aros_root/qualification/m1.5/compat/run-native.script" >>"$startup"
-cat "$aros_root/qualification/m1.5/compat/run-amshell.script" >>"$startup"
+append_flat_script "$aros_root/qualification/m1.5/compat/run-native.script"
+append_flat_script "$aros_root/qualification/m1.5/compat/run-amshell.script"
 cat >>"$startup" <<'EOF'
 CD SYS:qualification/m1.5
 SYS:C/Echo "m1.5-complete" >SYS:amshell-m1-stage.txt
@@ -67,21 +71,21 @@ SYS:C/Echo "m1.5-complete" >SYS:amshell-m1-stage.txt
 SYS:C/Echo "m1.6" >SYS:amshell-m1-stage.txt
 CD SYS:qualification/m1.6
 EOF
-cat "$aros_root/qualification/m1.6/run-qualification.script" >>"$startup"
+append_flat_script "$aros_root/qualification/m1.6/run-qualification.script"
 cat >>"$startup" <<'EOF'
 SYS:C/Echo "m1.6-complete" >SYS:amshell-m1-stage.txt
 
 SYS:C/Echo "m1.7-m1.9" >SYS:amshell-m1-stage.txt
 CD SYS:qualification/m1.7-m1.9
 EOF
-cat "$aros_root/qualification/m1.7-m1.9/run-qualification.script" >>"$startup"
+append_flat_script "$aros_root/qualification/m1.7-m1.9/run-qualification.script"
 cat >>"$startup" <<'EOF'
 SYS:C/Echo "m1.7-m1.9-complete" >SYS:amshell-m1-stage.txt
 
 SYS:C/Echo "m1.11" >SYS:amshell-m1-stage.txt
 CD SYS:qualification/m1.11
 EOF
-cat "$aros_root/qualification/m1.11/run-native-probe.script" >>"$startup"
+append_flat_script "$aros_root/qualification/m1.11/run-native-probe.script"
 cat >>"$startup" <<'EOF'
 SYS:C/Echo "m1.11-complete" >SYS:amshell-m1-stage.txt
 
@@ -96,9 +100,15 @@ Execute SYS:S/Startup-Sequence.amshell-original
 EOF
 
 # Hosted harness Execute calls must now only occur in test data/commands, not
-# as wrappers around the qualification scripts themselves.
+# as wrappers around the qualification scripts themselves. Likewise there must
+# be exactly one FailAt directive, the global FailAt 21 above.
 if grep -n -E '^Execute (run-(qualification|native-probe)\.script|SYS:qualification/)' "$startup"; then
   echo "ERROR: qualification wrapper Execute remained in flat AROS startup" >&2
+  exit 1
+fi
+if [[ "$(grep -c -E '^[[:space:]]*FailAt[[:space:]]+' "$startup")" != "1" ]] || \
+   ! grep -q -E '^[[:space:]]*FailAt[[:space:]]+21[[:space:]]*$' "$startup"; then
+  echo "ERROR: hosted AROS startup must contain only FailAt 21" >&2
   exit 1
 fi
 
