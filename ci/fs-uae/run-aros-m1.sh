@@ -7,7 +7,7 @@ mkdir -p "$OUT"
 
 [[ -d build/m1-final-qualification ]] || { echo "ERROR: M1 final bundle missing" >&2; exit 1; }
 
-iso="$(ci/fs-uae/fetch-aros-system.sh "$SYSTEM" | tail -n1)"
+iso="$(bash ci/fs-uae/fetch-aros-system.sh "$SYSTEM" | tail -n1)"
 root="$OUT/system-root"
 rm -rf "$root"
 mkdir -p "$root"
