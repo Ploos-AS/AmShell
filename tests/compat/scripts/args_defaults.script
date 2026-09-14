@@ -1,0 +1,7 @@
+; M1.7 native EXECUTE default-value fixture
+.KEY WORD,ALT
+.DEF WORD default-word
+Echo AmShell-defaults-start
+Echo word=<WORD>
+Echo alt=<ALT$fallback>
+Echo AmShell-defaults-end
