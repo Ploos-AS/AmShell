@@ -7,7 +7,11 @@
 
 #include <ctype.h>
 #include <dos/dos.h>
+#include <dos/dosasl.h>
+#include <exec/memory.h>
+#include <exec/tasks.h>
 #include <proto/dos.h>
+#include <proto/exec.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -45,22 +49,35 @@ static int is_cd_prefix(const char *line)
            (line[2] == '\0' || is_space_char(line[2]));
 }
 
-static int contains_shell_or_pattern_syntax(const char *text)
+static int contains_compound_shell_syntax(const char *text)
+{
+    const char *p;
+
+    for (p = text; *p != '\0'; ++p) {
+        if (*p == ';' || *p == '<' || *p == '>') {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int contains_pattern_syntax(const char *text)
 {
     const char *p;
 
     for (p = text; *p != '\0'; ++p) {
         switch (*p) {
-        case ';':
-        case '|':
-        case '<':
-        case '>':
         case '#':
         case '?':
         case '%':
         case '~':
         case '(':
         case ')':
+        case '|':
+        case '[':
+        case ']':
+        case '*':
             return 1;
         default:
             break;
@@ -71,11 +88,16 @@ static int contains_shell_or_pattern_syntax(const char *text)
 }
 
 /*
- * Parse only an exact CD path whose meaning is unambiguous without
- * reimplementing AmigaDOS pattern parsing. Returns 1 on success, 0 when the
- * line must be delegated unchanged to the native Shell.
+ * Decode one standalone CD argument without interpreting AmigaDOS patterns.
+ * Quoting is removed only so Lock()/MatchFirst() receive the same logical
+ * path value. Pattern interpretation remains entirely inside dos.library.
  */
-static int parse_exact_cd_path(const char *text, char *path, size_t path_size)
+static int parse_cd_argument(
+    const char *text,
+    char *path,
+    size_t path_size,
+    int *is_pattern
+)
 {
     const char *start;
     const char *end;
@@ -122,7 +144,11 @@ static int parse_exact_cd_path(const char *text, char *path, size_t path_size)
         }
 
         path[used] = '\0';
-        return used != 0 && !contains_shell_or_pattern_syntax(path);
+        if (used == 0 || contains_compound_shell_syntax(path)) {
+            return 0;
+        }
+        *is_pattern = contains_pattern_syntax(path);
+        return 1;
     }
 
     start = text;
@@ -143,19 +169,104 @@ static int parse_exact_cd_path(const char *text, char *path, size_t path_size)
     memcpy(path, start, length);
     path[length] = '\0';
 
-    if (strchr(path, '"') != 0 || contains_shell_or_pattern_syntax(path)) {
+    if (strchr(path, '"') != 0 || contains_compound_shell_syntax(path)) {
         return 0;
     }
 
+    /* Unquoted whitespace would mean more than one Shell argument. */
+    for (start = path; *start != '\0'; ++start) {
+        if (is_space_char(*start)) {
+            return 0;
+        }
+    }
+
+    *is_pattern = contains_pattern_syntax(path);
     return 1;
+}
+
+static int lock_is_directory(BPTR lock)
+{
+    struct FileInfoBlock fib;
+
+    if (lock == 0 || !Examine(lock, &fib)) {
+        return 0;
+    }
+
+    return fib.fib_DirEntryType > 0;
+}
+
+static long install_current_dir(BPTR lock)
+{
+    BPTR old_lock = CurrentDir(lock);
+
+    if (old_lock != 0) {
+        UnLock(old_lock);
+    }
+
+    return RETURN_OK;
+}
+
+/*
+ * Resolve explicit CD patterns with the native V36+ matcher. This mirrors the
+ * Shell rule that exactly one matching directory is required. When native
+ * matching cannot produce one unambiguous directory, the original command is
+ * delegated so AmigaDOS remains responsible for diagnostics and RC values.
+ */
+static long execute_pattern_cd(const char *line, const char *pattern)
+{
+    struct AnchorPath *anchor;
+    size_t anchor_size = sizeof(struct AnchorPath) + AMSHELL_CD_PATH_MAX;
+    char matched_path[AMSHELL_CD_PATH_MAX];
+    long error;
+    int directory_matches = 0;
+
+    anchor = (struct AnchorPath *)AllocMem(anchor_size, MEMF_CLEAR);
+    if (anchor == 0) {
+        return amshell_execute(line);
+    }
+
+    anchor->ap_Strlen = AMSHELL_CD_PATH_MAX;
+    anchor->ap_BreakBits = SIGBREAKF_CTRL_C;
+    anchor->ap_FoundBreak = 0;
+    anchor->ap_Flags = 0;
+
+    error = MatchFirst((STRPTR)pattern, anchor);
+    while (error == 0) {
+        if (anchor->ap_Info.fib_DirEntryType > 0) {
+            ++directory_matches;
+            if (directory_matches == 1) {
+                strncpy(matched_path, anchor->ap_Buf, sizeof(matched_path) - 1);
+                matched_path[sizeof(matched_path) - 1] = '\0';
+            }
+        }
+        error = MatchNext(anchor);
+    }
+
+    MatchEnd(anchor);
+    FreeMem(anchor, anchor_size);
+
+    if (error != ERROR_NO_MORE_ENTRIES || directory_matches != 1) {
+        return amshell_execute(line);
+    }
+
+    {
+        BPTR lock = Lock((STRPTR)matched_path, ACCESS_READ);
+        if (lock == 0 || !lock_is_directory(lock)) {
+            if (lock != 0) {
+                UnLock(lock);
+            }
+            return amshell_execute(line);
+        }
+        return install_current_dir(lock);
+    }
 }
 
 static long execute_persistent_cd(const char *line)
 {
     const char *argument = line + 2;
     char path[AMSHELL_CD_PATH_MAX];
+    int is_pattern = 0;
     BPTR lock;
-    BPTR old_lock;
 
     while (is_space_char(*argument)) {
         ++argument;
@@ -166,23 +277,55 @@ static long execute_persistent_cd(const char *line)
         return amshell_execute("CD");
     }
 
-    if (!parse_exact_cd_path(argument, path, sizeof(path))) {
-        /* Patterns, compound syntax and uncertain quoting stay native. */
+    if (!parse_cd_argument(argument, path, sizeof(path), &is_pattern)) {
         return amshell_execute(line);
+    }
+
+    if (is_pattern) {
+        return execute_pattern_cd(line, path);
     }
 
     lock = Lock((STRPTR)path, ACCESS_READ);
-    if (lock == 0) {
-        /* Preserve native diagnostics and RC for an invalid exact target. */
+    if (lock == 0 || !lock_is_directory(lock)) {
+        if (lock != 0) {
+            UnLock(lock);
+        }
+        /* Preserve native diagnostics and RC for invalid exact targets. */
         return amshell_execute(line);
     }
 
-    old_lock = CurrentDir(lock);
-    if (old_lock != 0) {
-        UnLock(old_lock);
+    return install_current_dir(lock);
+}
+
+/*
+ * Implied CD is safe to transfer directly for unambiguous path-like tokens.
+ * Bare directory names remain delegated until command-vs-directory precedence
+ * is differentially qualified against the original Shell.
+ */
+static int try_pathlike_implied_cd(const char *line, long *result)
+{
+    char path[AMSHELL_CD_PATH_MAX];
+    int is_pattern = 0;
+    BPTR lock;
+
+    if (line == 0 || (strchr(line, ':') == 0 && strchr(line, '/') == 0)) {
+        return 0;
     }
 
-    return RETURN_OK;
+    if (!parse_cd_argument(line, path, sizeof(path), &is_pattern) || is_pattern) {
+        return 0;
+    }
+
+    lock = Lock((STRPTR)path, ACCESS_READ);
+    if (lock == 0 || !lock_is_directory(lock)) {
+        if (lock != 0) {
+            UnLock(lock);
+        }
+        return 0;
+    }
+
+    *result = install_current_dir(lock);
+    return 1;
 }
 
 int amshell_session_should_exit(const char *line)
@@ -219,8 +362,14 @@ int amshell_session_should_exit(const char *line)
 
 long amshell_session_execute(const char *line)
 {
+    long implied_result;
+
     if (is_cd_prefix(line)) {
         return execute_persistent_cd(line);
+    }
+
+    if (try_pathlike_implied_cd(line, &implied_result)) {
+        return implied_result;
     }
 
     return amshell_execute(line);
