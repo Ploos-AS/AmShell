@@ -68,4 +68,7 @@ PASS requires equivalent RC and output. The only normalization currently permitt
 
 ## Status
 
-The M1.6 runtime qualification harness is implemented and host-smoke-tested. This document does not claim an FS-UAE/AmigaOS runtime PASS until actual guest evidence has been collected and the comparator has emitted `RESULT: PASS`.
+**PASS — 2026-09-14.** The generated bundle completed on visible FS-UAE
+3.2.35 with A500/68000 Kickstart and Workbench 2.04. Both paths returned RC 0,
+and the comparator emitted `RESULT: PASS`. See `docs/M1_6_QUALIFICATION.md` and
+`docs/evidence/m1.6/` for the environment record and raw guest results.

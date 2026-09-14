@@ -1,0 +1,12 @@
+AmShell SHA-256: a4aed4c0054c9e0fda09e138c59519d86f7d97584a99e6c166d7527c2882baca
+CompatNative SHA-256: dabe697af7de301e59957cb1289243a168305e5a8ef45e7562ea932e19016f0f
+Fixture SHA-256: 14607aa5cc8c0ef81974317ebead6665c9a2e16f5cc8f6cf73c3204f4211b285
+
+build/AmShell: AmigaOS loadseg()-able executable/binary
+build/CompatNative: AmigaOS loadseg()-able executable/binary
+
+build/AmShell: file format amiga
+architecture: m68k:68000
+
+build/CompatNative: file format amiga
+architecture: m68k:68000

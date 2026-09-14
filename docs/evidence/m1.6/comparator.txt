@@ -1,0 +1,1 @@
+RESULT: PASS (native EXECUTE and AmShell command-file behavior equivalent)

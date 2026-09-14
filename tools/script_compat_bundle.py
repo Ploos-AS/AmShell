@@ -26,7 +26,7 @@ def main() -> int:
     (OUT / "run-qualification.script").write_text(
         "; AmShell M1.6 command-file differential qualification\n"
         "FailAt 20\n"
-        "MakeDir T:AmShellM16 >NIL: 2>NIL:\n"
+        "MakeDir T:AmShellM16 >NIL:\n"
         "CompatNative native-command.txt T:AmShellM16/native-script.out\n"
         "Echo $RC >T:AmShellM16/native-script.rc\n"
         "AmShell basic.script >T:AmShellM16/amshell-script.out\n"

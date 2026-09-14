@@ -27,7 +27,7 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 - [x] reproducible M1.5 AmigaOS/FS-UAE qualification bundle
 - [x] run and record first AmigaOS/FS-UAE differential qualification
 - [x] reproducible M1.6 command-file qualification bundle and comparator
-- [ ] M1.6 command-file runtime differential qualification on visible FS-UAE
+- [x] M1.6 command-file runtime differential qualification on visible FS-UAE
 - [ ] command-file arguments / `.KEY` substitution qualification
 - [ ] broaden `CD` compatibility beyond the conservative standalone baseline
 
@@ -76,7 +76,11 @@ AmShell delegates the file to native `EXECUTE` through the existing system-Shell
 
 `tools/script_compat_bundle.py` packages a native `EXECUTE` reference path and an AmShell candidate path for the same `basic.script`. `tools/script_compat_compare.py` compares captured output and RC, normalizing only the same documented volatile `Avail` counters used in M1.5. Host smoke tests are part of `make check`.
 
-The M1.6 runtime harness is ready, but runtime PASS is not claimed until the bundle has been run on visible FS-UAE/AmigaOS and guest evidence has been compared successfully.
+The M1.6 command-file differential qualification passed on visible
+FS-UAE 3.2.35 with the A500/68000 Kickstart and Workbench 2.04 profile on
+2026-09-14. Native `EXECUTE` and `AmShell basic.script` returned the same RC
+and equivalent stable output. See `docs/M1_6_QUALIFICATION.md` for the raw
+evidence and exact comparator verdict.
 
 See `docs/M1_6_COMMAND_FILE_EXECUTION.md`, `docs/M1_6_RUNTIME_QUALIFICATION.md` and `tests/compat/scripts/basic.script`.
 

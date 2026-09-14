@@ -1,0 +1,26 @@
+[fs-uae]
+amiga_model = A500
+cpu = 68000
+fpu = 0
+kickstart_file = /home/pgo/Documents/FS-UAE/Kickstarts/amiga-os-204.rom
+chip_memory = 1024
+slow_memory = 0
+fast_memory = 4096
+hard_drive_0 = /tmp/amshell-m16-run2/Workbench2.0
+hard_drive_0_label = System
+hard_drive_0_priority = 10
+hard_drive_1 = /home/pgo/Projects/Ploos-AS/AmShell/build/m1.6-qualification
+hard_drive_1_label = Qualification
+hard_drive_1_priority = 0
+hard_drive_1_read_only = 1
+hard_drive_2 = /tmp/amshell-m16-run2/results
+hard_drive_2_label = Results
+hard_drive_2_priority = 0
+floppy_drive_count = 0
+fullscreen = 0
+window_width = 960
+window_height = 720
+automatic_input_grab = 0
+sound_output = 0
+base_dir = /tmp/amshell-m16-run2/fs-uae
+logs_dir = /tmp/amshell-m16-run2/logs

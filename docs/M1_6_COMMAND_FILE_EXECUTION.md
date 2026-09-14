@@ -37,4 +37,6 @@ tests/compat/scripts/basic.script
 
 ## Qualification status
 
-M1.6 implementation and host repository checks may pass independently of runtime qualification. A native-vs-AmShell command-file differential run on AmigaOS/FS-UAE is still required before claiming full M1.6 runtime PASS.
+The native-vs-AmShell command-file differential qualification passed on
+visible FS-UAE 3.2.35 with A500/68000 Kickstart and Workbench 2.04 on
+2026-09-14. See `docs/M1_6_QUALIFICATION.md`.

@@ -33,6 +33,7 @@ REQUIRED_FILES = (
     "docs/M1_5_QUALIFICATION.md",
     "docs/M1_6_COMMAND_FILE_EXECUTION.md",
     "docs/M1_6_RUNTIME_QUALIFICATION.md",
+    "docs/M1_6_QUALIFICATION.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -133,6 +134,8 @@ def main() -> int:
     for marker in ("m1.6-qualification", "native-command.txt", "run-qualification.script"):
         if marker not in script_bundle:
             fail(f"M1.6 script bundle missing marker: {marker}")
+    if "2>NIL:" in script_bundle:
+        fail("M1.6 script bundle uses unsupported numbered AmigaDOS redirection")
 
     print("PASS: AmShell M1.6 repository and runtime-harness checks")
     return 0

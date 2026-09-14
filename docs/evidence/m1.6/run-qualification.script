@@ -1,0 +1,8 @@
+; AmShell M1.6 command-file differential qualification
+FailAt 20
+MakeDir T:AmShellM16 >NIL:
+CompatNative native-command.txt T:AmShellM16/native-script.out
+Echo $RC >T:AmShellM16/native-script.rc
+AmShell basic.script >T:AmShellM16/amshell-script.out
+Echo $RC >T:AmShellM16/amshell-script.rc
+Echo M1.6 guest run complete
