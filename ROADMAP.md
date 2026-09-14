@@ -28,7 +28,8 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 - [x] run and record first AmigaOS/FS-UAE differential qualification
 - [x] reproducible M1.6 command-file qualification bundle and comparator
 - [x] M1.6 command-file runtime differential qualification on visible FS-UAE
-- [ ] command-file arguments / `.KEY` substitution qualification
+- [x] M1.7 command-file argument forwarding implementation and seed `.KEY` fixture
+- [ ] M1.7 command-file arguments / `.KEY` differential runtime qualification
 - [ ] broaden `CD` compatibility beyond the conservative standalone baseline
 
 ### M1.1 — non-interactive execution baseline
@@ -72,7 +73,7 @@ A single non-option argument runs an AmigaDOS command file:
 AmShell scriptfile
 ```
 
-AmShell delegates the file to native `EXECUTE` through the existing system-Shell backend. It does not parse the script itself, so established AmigaDOS command-file semantics remain owned by AmigaDOS. The initial scope intentionally excludes command-file arguments until `.KEY`/substitution behaviour has been differentially qualified.
+AmShell delegates the file to native `EXECUTE` through the existing system-Shell backend. It does not parse the script itself, so established AmigaDOS command-file semantics remain owned by AmigaDOS.
 
 `tools/script_compat_bundle.py` packages a native `EXECUTE` reference path and an AmShell candidate path for the same `basic.script`. `tools/script_compat_compare.py` compares captured output and RC, normalizing only the same documented volatile `Avail` counters used in M1.5. Host smoke tests are part of `make check`.
 
@@ -82,7 +83,19 @@ FS-UAE 3.2.35 with the A500/68000 Kickstart and Workbench 2.04 profile on
 and equivalent stable output. See `docs/M1_6_QUALIFICATION.md` for the raw
 evidence and exact comparator verdict.
 
-See `docs/M1_6_COMMAND_FILE_EXECUTION.md`, `docs/M1_6_RUNTIME_QUALIFICATION.md` and `tests/compat/scripts/basic.script`.
+### M1.7 — native command-file arguments and `.KEY`
+
+AmShell now accepts:
+
+```text
+AmShell scriptfile arg1 arg2 ...
+```
+
+AmShell only reconstructs the outer `EXECUTE` invocation, quoting each received argument using AmigaDOS escaping. `.KEY` parsing, substitution and failure behavior remain native AmigaDOS responsibilities. The seed differential fixture is `tests/compat/scripts/args.script`.
+
+Runtime qualification remains pending. The qualification corpus must compare direct native `EXECUTE` with AmShell for positional, optional and keyword arguments, spaces/escaping and missing required arguments before M1.7 can be marked complete. `/N`, `/S`, defaults and `.BRA`/`.KET` should also be included before the final M1.7 verdict.
+
+See `docs/M1_7_SCRIPT_ARGUMENTS.md`.
 
 No enhanced syntax is allowed to compromise M1 compatibility.
 
