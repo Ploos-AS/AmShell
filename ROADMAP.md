@@ -14,11 +14,12 @@
 
 Goal: execute ordinary AmigaDOS command lines without changing their established meaning.
 
-- [ ] command input loop
+- [x] command input loop
 - [x] AmigaDOS execution backend
 - [x] command/argument forwarding through `-c`
-- [ ] current-directory handling
+- [ ] persistent current-directory handling across interactive commands
 - [x] return-code propagation for executed commands
+- [x] interactive session retains last command RC
 - [x] non-interactive `-c` execution
 - [ ] basic command-file execution
 - [ ] initial original-Shell differential compatibility tests
@@ -26,6 +27,12 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 ### M1.1 — non-interactive execution baseline
 
 Implemented with `dos.library/SystemTagList()` (V36+) so established AmigaDOS parsing remains owned by the system Shell. AmShell does not introduce an independent parser for ordinary command text.
+
+### M1.2 — interactive loop baseline
+
+AmShell now provides a minimal interactive read/execute loop. Ordinary command lines remain opaque to AmShell and are delegated to the system Shell. The session records the last return code.
+
+`CD` persistence is deliberately not claimed yet: launching a separate system Shell for each command can change the child Shell's directory without changing AmShell's parent process directory. M1.3 must solve this without casually reimplementing incompatible AmigaDOS parsing semantics.
 
 No enhanced syntax is allowed to compromise M1 compatibility.
 
