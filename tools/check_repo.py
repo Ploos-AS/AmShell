@@ -41,6 +41,7 @@ REQUIRED_FILES = (
     "docs/M1_6_QUALIFICATION.md",
     "docs/M1_7_SCRIPT_ARGUMENTS.md",
     "docs/M1_7_RUNTIME_QUALIFICATION.md",
+    "docs/M1_8_SESSION_COMPATIBILITY.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -104,6 +105,10 @@ def main() -> int:
         fail("interactive loop bypasses session-state execution")
     if "amshell_execute_file_args" not in source:
         fail("entrypoint has no M1.7 command-file argument path")
+    if "amshell_session_should_exit" not in source:
+        fail("interactive loop does not use native ENDCLI/ENDSHELL termination detection")
+    if 'strcmp(line, "exit")' in source or 'strcmp(line, "EXIT")' in source:
+        fail("interactive loop still treats EXIT as an Amiga Shell termination command")
 
     backend = (ROOT / "src/exec.c").read_text(encoding="utf-8")
     if "SystemTagList" not in backend:
@@ -120,8 +125,13 @@ def main() -> int:
     session = (ROOT / "src/session.c").read_text(encoding="utf-8")
     if "CurrentDir" not in session or "Lock(" not in session:
         fail("session module has no persistent current-directory path")
-    if "contains_shell_syntax" not in session:
-        fail("session CD handling lacks conservative syntax guard")
+    if "contains_shell_or_pattern_syntax" not in session:
+        fail("session CD handling lacks conservative pattern/syntax guard")
+    if "parse_exact_cd_path" not in session:
+        fail("session CD handling lacks M1.8 exact quoted-path support")
+    for command in ("ENDCLI", "ENDSHELL"):
+        if command not in session:
+            fail(f"session termination detection missing native command: {command}")
 
     cases = [
         line.strip()
@@ -179,7 +189,7 @@ def main() -> int:
     if "2>NIL:" in args_bundle:
         fail("M1.7 argument bundle uses unsupported numbered AmigaDOS redirection")
 
-    print("PASS: AmShell M1.7 repository and runtime-harness checks")
+    print("PASS: AmShell M1.8 repository and deferred-runtime checks")
     return 0
 
 
