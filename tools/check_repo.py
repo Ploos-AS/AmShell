@@ -19,16 +19,20 @@ REQUIRED_FILES = (
     "tests/compat/cases.txt",
     "tests/compat/scripts/basic.script",
     "tests/test_compat_tools.py",
+    "tests/test_script_compat.py",
     "tools/compat_prepare.py",
     "tools/compat_compare.py",
     "tools/compat_bundle.py",
     "tools/compat_native.c",
+    "tools/script_compat_compare.py",
+    "tools/script_compat_bundle.py",
     "docs/ARCHITECTURE.md",
     "docs/COMPATIBILITY.md",
     "docs/M1_4_DIFFERENTIAL_QUALIFICATION.md",
     "docs/M1_5_RUNTIME_QUALIFICATION.md",
     "docs/M1_5_QUALIFICATION.md",
     "docs/M1_6_COMMAND_FILE_EXECUTION.md",
+    "docs/M1_6_RUNTIME_QUALIFICATION.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -51,16 +55,14 @@ def main() -> int:
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     if "-m68000" not in makefile:
         fail("Makefile does not declare the 68000 baseline")
-    if "check:" not in makefile:
-        fail("Makefile has no check target")
-    if "compat-prepare:" not in makefile:
-        fail("Makefile has no differential compatibility preparation target")
-    if "compat-bundle:" not in makefile:
-        fail("Makefile has no M1.5 qualification bundle target")
+    for target in ("check:", "compat-prepare:", "compat-bundle:", "script-compat-bundle:"):
+        if target not in makefile:
+            fail(f"Makefile missing target: {target}")
     if "tools/compat_native.c" not in makefile:
-        fail("M1.5 bundle does not build the native Shell capture launcher")
-    if "tests/test_compat_tools.py" not in makefile:
-        fail("make check does not execute compatibility harness smoke tests")
+        fail("qualification build does not include native Shell capture launcher")
+    for test in ("tests/test_compat_tools.py", "tests/test_script_compat.py"):
+        if test not in makefile:
+            fail(f"make check does not execute {test}")
     for source in ("src/exec.c", "src/session.c"):
         if source not in makefile:
             fail(f"Makefile does not build {source}")
@@ -116,6 +118,8 @@ def main() -> int:
     prepare = (ROOT / "tools/compat_prepare.py").read_text(encoding="utf-8")
     compare = (ROOT / "tools/compat_compare.py").read_text(encoding="utf-8")
     bundle = (ROOT / "tools/compat_bundle.py").read_text(encoding="utf-8")
+    script_compare = (ROOT / "tools/script_compat_compare.py").read_text(encoding="utf-8")
+    script_bundle = (ROOT / "tools/script_compat_bundle.py").read_text(encoding="utf-8")
     if "run-native.script" not in prepare or "run-amshell.script" not in prepare:
         fail("differential harness does not prepare both execution paths")
     if "native-{case_id}.script" not in prepare:
@@ -124,8 +128,13 @@ def main() -> int:
         fail("differential comparator has no explicit verdict")
     if "run-qualification.script" not in bundle or "m1.5-qualification" not in bundle:
         fail("M1.5 bundle tool does not create the guest qualification package")
+    if "RESULT: FAIL" not in script_compare or "RESULT: PASS" not in script_compare:
+        fail("M1.6 script comparator has no explicit verdict")
+    for marker in ("m1.6-qualification", "native-command.txt", "run-qualification.script"):
+        if marker not in script_bundle:
+            fail(f"M1.6 script bundle missing marker: {marker}")
 
-    print("PASS: AmShell M1.6 repository checks")
+    print("PASS: AmShell M1.6 repository and runtime-harness checks")
     return 0
 
 
