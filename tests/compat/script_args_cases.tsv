@@ -1,7 +1,15 @@
-# id	arguments
-required-only	alpha
-positional-two	alpha beta
-keyword	alpha MODE turbo
-optional-omitted	alpha MODE turbo
-space-value	"alpha value" beta
-missing-required	MODE turbo
+# id	script	arguments
+required-only	args.script	alpha
+positional-two	args.script	alpha beta
+keyword	args.script	alpha MODE turbo
+optional-omitted	args.script	alpha MODE turbo
+space-value	args.script	"alpha value" beta
+missing-required	args.script	MODE turbo
+numeric	args_types.script	COUNT 42
+switch	args_types.script	VERBOSE
+numeric-switch	args_types.script	COUNT 7 VERBOSE
+numeric-invalid	args_types.script	COUNT nope
+default-def	args_defaults.script	
+default-override	args_defaults.script	custom
+inline-default	args_defaults.script	custom
+brackets	args_brackets.script	alpha
