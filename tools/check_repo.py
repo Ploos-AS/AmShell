@@ -17,8 +17,12 @@ REQUIRED_FILES = (
     "src/session.c",
     "src/session.h",
     "tests/compat/cases.txt",
+    "tests/test_compat_tools.py",
+    "tools/compat_prepare.py",
+    "tools/compat_compare.py",
     "docs/ARCHITECTURE.md",
     "docs/COMPATIBILITY.md",
+    "docs/M1_4_DIFFERENTIAL_QUALIFICATION.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -43,6 +47,10 @@ def main() -> int:
         fail("Makefile does not declare the 68000 baseline")
     if "check:" not in makefile:
         fail("Makefile has no check target")
+    if "compat-prepare:" not in makefile:
+        fail("Makefile has no differential compatibility preparation target")
+    if "tests/test_compat_tools.py" not in makefile:
+        fail("make check does not execute compatibility harness smoke tests")
     for source in ("src/exec.c", "src/session.c"):
         if source not in makefile:
             fail(f"Makefile does not build {source}")
@@ -83,9 +91,18 @@ def main() -> int:
         if line.strip() and not line.lstrip().startswith("#")
     ]
     if len(cases) < 8:
-        fail("compatibility corpus is too small for M1.3 baseline")
+        fail("compatibility corpus is too small for M1 baseline")
 
-    print("PASS: AmShell M1.3 repository checks")
+    prepare = (ROOT / "tools/compat_prepare.py").read_text(encoding="utf-8")
+    compare = (ROOT / "tools/compat_compare.py").read_text(encoding="utf-8")
+    if "run-native.script" not in prepare or "run-amshell.script" not in prepare:
+        fail("differential harness does not prepare both execution paths")
+    if "native-{case_id}.script" not in prepare:
+        fail("native harness does not preserve testcase text in command files")
+    if "RESULT: FAIL" not in compare or "RESULT: PASS" not in compare:
+        fail("differential comparator has no explicit verdict")
+
+    print("PASS: AmShell M1.4 repository checks")
     return 0
 
 
