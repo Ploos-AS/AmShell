@@ -14,6 +14,9 @@ REQUIRED_FILES = (
     "src/main.c",
     "src/exec.c",
     "src/exec.h",
+    "src/session.c",
+    "src/session.h",
+    "tests/compat/cases.txt",
     "docs/ARCHITECTURE.md",
     "docs/COMPATIBILITY.md",
 )
@@ -40,8 +43,9 @@ def main() -> int:
         fail("Makefile does not declare the 68000 baseline")
     if "check:" not in makefile:
         fail("Makefile has no check target")
-    if "src/exec.c" not in makefile:
-        fail("Makefile does not build the execution backend")
+    for source in ("src/exec.c", "src/session.c"):
+        if source not in makefile:
+            fail(f"Makefile does not build {source}")
 
     compat = (ROOT / "docs/COMPATIBILITY.md").read_text(encoding="utf-8")
     folded = compat.casefold()
@@ -58,8 +62,8 @@ def main() -> int:
         fail("entrypoint has no interactive command loop")
     if "last_rc" not in source:
         fail("interactive session does not retain the last return code")
-    if "fgets(" not in source:
-        fail("interactive session has no line-input path")
+    if "amshell_session_execute" not in source:
+        fail("interactive loop bypasses session-state execution")
 
     backend = (ROOT / "src/exec.c").read_text(encoding="utf-8")
     if "SystemTagList" not in backend:
@@ -67,7 +71,21 @@ def main() -> int:
     if "SYS_UserShell" not in backend:
         fail("execution backend does not explicitly select Shell compatibility")
 
-    print("PASS: AmShell M1.2 repository checks")
+    session = (ROOT / "src/session.c").read_text(encoding="utf-8")
+    if "CurrentDir" not in session or "Lock(" not in session:
+        fail("session module has no persistent current-directory path")
+    if "contains_shell_syntax" not in session:
+        fail("session CD handling lacks conservative syntax guard")
+
+    cases = [
+        line.strip()
+        for line in (ROOT / "tests/compat/cases.txt").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    if len(cases) < 8:
+        fail("compatibility corpus is too small for M1.3 baseline")
+
+    print("PASS: AmShell M1.3 repository checks")
     return 0
 
 
