@@ -31,9 +31,8 @@ SYS:C/MakeDir SYS:qualification-results/m1.7-m1.9 >NIL:
 SYS:C/Echo "qualification-cd" >SYS:amshell-ci-stage.txt
 CD SYS:qualification
 SYS:C/Echo "qualification-execute" >SYS:amshell-ci-stage.txt
-SYS:C/Execute run-m1-final.script >SYS:amshell-ci-console.txt
+SYS:C/Execute SYS:qualification/run-m1-final.script >SYS:amshell-ci-console.txt
 SYS:C/Echo $RC >SYS:amshell-ci-rc.txt
-SYS:C/Copy T:AmShellM1Stage SYS:amshell-ci-m1-stage.txt QUIET
 SYS:C/Echo "collect" >SYS:amshell-ci-stage.txt
 SYS:C/Copy T:AmShellCompat/#? SYS:qualification-results/m1.5 ALL QUIET
 SYS:C/Copy T:AmShellM16/#? SYS:qualification-results/m1.6 ALL QUIET
@@ -78,7 +77,7 @@ cp -a "$aros_root/qualification/m1.11"/native-* "$results/m1.11/" 2>/dev/null ||
 cp "$aros_root/amshell-ci-console.txt" "$OUT/guest-console.txt" 2>/dev/null || true
 cp "$aros_root/amshell-ci-rc.txt" "$OUT/guest-rc.txt" 2>/dev/null || true
 cp "$aros_root/amshell-ci-stage.txt" "$OUT/guest-stage.txt" 2>/dev/null || true
-cp "$aros_root/amshell-ci-m1-stage.txt" "$OUT/m1-stage.txt" 2>/dev/null || true
+cp "$aros_root/amshell-m1-stage.txt" "$OUT/m1-stage.txt" 2>/dev/null || true
 
 compare_status=PASS
 if [[ "$status" == PASS ]]; then
