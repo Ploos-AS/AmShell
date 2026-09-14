@@ -12,6 +12,8 @@ REQUIRED_FILES = (
     "LICENSE",
     "Makefile",
     "src/main.c",
+    "src/exec.c",
+    "src/exec.h",
     "docs/ARCHITECTURE.md",
     "docs/COMPATIBILITY.md",
 )
@@ -38,6 +40,8 @@ def main() -> int:
         fail("Makefile does not declare the 68000 baseline")
     if "check:" not in makefile:
         fail("Makefile has no check target")
+    if "src/exec.c" not in makefile:
+        fail("Makefile does not build the execution backend")
 
     compat = (ROOT / "docs/COMPATIBILITY.md").read_text(encoding="utf-8")
     folded = compat.casefold()
@@ -48,8 +52,16 @@ def main() -> int:
     source = (ROOT / "src/main.c").read_text(encoding="utf-8")
     if "AMSHELL_VERSION" not in source:
         fail("entrypoint has no version identifier")
+    if 'strcmp(argv[1], "-c")' not in source:
+        fail("entrypoint has no -c execution path")
 
-    print("PASS: AmShell M0.1 repository checks")
+    backend = (ROOT / "src/exec.c").read_text(encoding="utf-8")
+    if "SystemTagList" not in backend:
+        fail("execution backend does not delegate to AmigaDOS SystemTagList")
+    if "SYS_UserShell" not in backend:
+        fail("execution backend does not explicitly select Shell compatibility")
+
+    print("PASS: AmShell M1.1 repository checks")
     return 0
 
 
