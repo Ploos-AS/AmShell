@@ -55,32 +55,35 @@ def main() -> int:
     copy_tree(BUILD / "m1.7-qualification", OUT / "m1.7-m1.9")
     copy_tree(BUILD / "m1.11-qualification", OUT / "m1.11")
 
-    # Use one top-level guest script. Each sub-harness keeps its own result
-    # namespace. T:AmShellM1Stage is diagnostic-only and records the last
-    # reached sub-stage if a hosted guest stops before completion.
+    # Hosted AROS runs mount the qualification bundle below SYS:. Keep both
+    # stage evidence and sub-harness paths absolute so a failed nested Execute
+    # cannot hide its last reached stage or depend on the caller's cwd.
+    # FailAt 21 keeps intentional RC 20 compatibility cases from aborting the
+    # combined collection run.
     guest = [
         "; AmShell M1 combined visible-FS-UAE qualification",
         "; Baseline: A500/68000 + AmigaOS 2.04",
-        "FailAt 20",
-        'Echo "start" >T:AmShellM1Stage',
+        "FailAt 21",
+        'Echo "start" >SYS:amshell-m1-stage.txt',
         'Echo "=== AmShell M1 final qualification starting ==="',
-        'Echo "m1.5" >T:AmShellM1Stage',
-        "CD m1.5",
-        "Execute run-qualification.script",
-        "CD /",
-        'Echo "m1.6" >T:AmShellM1Stage',
-        "CD m1.6",
-        "Execute run-qualification.script",
-        "CD /",
-        'Echo "m1.7-m1.9" >T:AmShellM1Stage',
-        "CD m1.7-m1.9",
-        "Execute run-qualification.script",
-        "CD /",
-        'Echo "m1.11" >T:AmShellM1Stage',
-        "CD m1.11",
-        "Execute run-native-probe.script",
-        "CD /",
-        'Echo "complete" >T:AmShellM1Stage',
+        'Echo "m1.5" >SYS:amshell-m1-stage.txt',
+        "CD SYS:qualification/m1.5",
+        "Execute SYS:qualification/m1.5/run-qualification.script",
+        'Echo "m1.5-complete" >SYS:amshell-m1-stage.txt',
+        'Echo "m1.6" >SYS:amshell-m1-stage.txt',
+        "CD SYS:qualification/m1.6",
+        "Execute SYS:qualification/m1.6/run-qualification.script",
+        'Echo "m1.6-complete" >SYS:amshell-m1-stage.txt',
+        'Echo "m1.7-m1.9" >SYS:amshell-m1-stage.txt',
+        "CD SYS:qualification/m1.7-m1.9",
+        "Execute SYS:qualification/m1.7-m1.9/run-qualification.script",
+        'Echo "m1.7-m1.9-complete" >SYS:amshell-m1-stage.txt',
+        'Echo "m1.11" >SYS:amshell-m1-stage.txt',
+        "CD SYS:qualification/m1.11",
+        "Execute SYS:qualification/m1.11/run-native-probe.script",
+        'Echo "m1.11-complete" >SYS:amshell-m1-stage.txt',
+        "CD SYS:qualification",
+        'Echo "complete" >SYS:amshell-m1-stage.txt',
         'Echo "=== M1 guest execution complete ==="',
         'Echo "Collect T:AmShellCompat, T:AmShellM16, T:AmShellM17 and m1.11/native-* evidence."',
     ]
@@ -107,7 +110,7 @@ Evidence to collect:
 - T:AmShellCompat/        (M1.5 command differential regression)
 - T:AmShellM16/           (M1.6 command-file regression)
 - T:AmShellM17/           (M1.7/M1.9 argument and .KEY surface)
-- T:AmShellM1Stage        (diagnostic last-stage marker)
+- SYS:amshell-m1-stage.txt (persistent diagnostic last-stage marker in hosted runs)
 - m1.11/native-*.out/.rc/.cwd (native bare-name implied-CD precedence probe)
 
 Host comparison:
