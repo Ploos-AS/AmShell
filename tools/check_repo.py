@@ -46,6 +46,7 @@ REQUIRED_FILES = (
     "docs/M1_7_RUNTIME_QUALIFICATION.md",
     "docs/M1_8_SESSION_COMPATIBILITY.md",
     "docs/M1_9_EXTENDED_SCRIPT_SURFACE.md",
+    "docs/M1_10_PATTERNED_IMPLIED_CD.md",
 )
 
 REQUIRED_COMPATIBILITY_TERMS = (
@@ -113,6 +114,8 @@ def main() -> int:
         fail("interactive loop does not use native ENDCLI/ENDSHELL termination detection")
     if 'strcmp(line, "exit")' in source or 'strcmp(line, "EXIT")' in source:
         fail("interactive loop still treats EXIT as an Amiga Shell termination command")
+    if '0.1.0-m1.10' not in source:
+        fail("entrypoint version does not identify M1.10")
 
     backend = (ROOT / "src/exec.c").read_text(encoding="utf-8")
     if "SystemTagList" not in backend:
@@ -127,12 +130,22 @@ def main() -> int:
         fail("argument forwarding lacks AmigaDOS-safe quoting")
 
     session = (ROOT / "src/session.c").read_text(encoding="utf-8")
-    if "CurrentDir" not in session or "Lock(" not in session:
-        fail("session module has no persistent current-directory path")
-    if "contains_shell_or_pattern_syntax" not in session:
-        fail("session CD handling lacks conservative pattern/syntax guard")
-    if "parse_exact_cd_path" not in session:
-        fail("session CD handling lacks exact quoted-path support")
+    for marker in ("CurrentDir", "Lock(", "Examine("):
+        if marker not in session:
+            fail(f"session module missing current-directory primitive: {marker}")
+    for marker in ("MatchFirst", "MatchNext", "MatchEnd", "struct AnchorPath"):
+        if marker not in session:
+            fail(f"M1.10 patterned CD path missing native matcher: {marker}")
+    if "execute_pattern_cd" not in session:
+        fail("M1.10 has no explicit patterned CD state-transfer path")
+    if "try_pathlike_implied_cd" not in session:
+        fail("M1.10 has no path-like implied CD state-transfer path")
+    if "directory_matches != 1" not in session:
+        fail("patterned CD does not enforce one-directory native Shell rule")
+    if "contains_pattern_syntax" not in session:
+        fail("session CD handling lacks pattern classification")
+    if "parse_cd_argument" not in session:
+        fail("session CD handling lacks conservative argument decoding")
     for command in ("ENDCLI", "ENDSHELL"):
         if command not in session:
             fail(f"session termination detection missing native command: {command}")
@@ -209,7 +222,7 @@ def main() -> int:
         if marker not in args_bundle:
             fail(f"multi-fixture argument bundle missing marker: {marker}")
 
-    print("PASS: AmShell M1.9 repository and deferred-qualification checks")
+    print("PASS: AmShell M1.10 repository and deferred-qualification checks")
     return 0
 
 
