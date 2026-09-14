@@ -12,11 +12,61 @@
 
 #include "exec.h"
 
-#define AMSHELL_VERSION "0.1.0-m1.1"
+#define AMSHELL_VERSION "0.1.0-m1.2"
+#define AMSHELL_LINE_MAX 1024
 
 static void print_usage(const char *program)
 {
     printf("Usage: %s [--version] [--help] [-c \"command\"]\n", program);
+}
+
+static void trim_line_end(char *line)
+{
+    size_t len = strlen(line);
+
+    while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
+        line[--len] = '\0';
+    }
+}
+
+static int interactive_loop(void)
+{
+    char line[AMSHELL_LINE_MAX];
+    long last_rc = RETURN_OK;
+
+    puts("AmShell " AMSHELL_VERSION);
+
+    for (;;) {
+        fputs("AmShell> ", stdout);
+        fflush(stdout);
+
+        if (fgets(line, sizeof(line), stdin) == 0) {
+            putchar('\n');
+            break;
+        }
+
+        trim_line_end(line);
+
+        if (line[0] == '\0') {
+            continue;
+        }
+
+        /*
+         * EXIT is the only M1.2 interactive control command.  Other command
+         * text remains opaque and is delegated to the system Shell.
+         */
+        if (strcmp(line, "exit") == 0 || strcmp(line, "EXIT") == 0) {
+            break;
+        }
+
+        last_rc = amshell_execute(line);
+        if (last_rc < 0) {
+            fputs("AmShell: unable to launch system Shell\n", stderr);
+            last_rc = RETURN_FAIL;
+        }
+    }
+
+    return (int)last_rc;
 }
 
 int main(int argc, char **argv)
@@ -24,9 +74,7 @@ int main(int argc, char **argv)
     long rc;
 
     if (argc == 1) {
-        puts("AmShell " AMSHELL_VERSION);
-        puts("M1.1 compatible execution core; interactive mode follows later.");
-        return RETURN_OK;
+        return interactive_loop();
     }
 
     if (argc == 2 && strcmp(argv[1], "--version") == 0) {
