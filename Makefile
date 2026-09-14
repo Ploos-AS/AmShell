@@ -2,7 +2,7 @@ CC ?= m68k-amigaos-gcc
 PYTHON ?= python3
 
 TARGET := build/AmShell
-SOURCES := src/main.c
+SOURCES := src/main.c src/exec.c
 
 CPPFLAGS :=
 CFLAGS ?= -Os -Wall -Wextra -Werror -m68000
