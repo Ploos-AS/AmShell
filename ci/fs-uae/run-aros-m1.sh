@@ -20,18 +20,29 @@ rm -rf "$aros_root/qualification"
 cp -a build/m1-final-qualification "$aros_root/qualification"
 cp "$startup" "$startup.amshell-original"
 
+# The standalone qualification harnesses intentionally use T: so normal
+# AmigaOS runs remain self-contained and disposable. Hosted CI needs evidence
+# to survive the emulator timeout, so rewrite only the staged guest copy to
+# persistent SYS: paths. Repository sources and local qualification semantics
+# remain unchanged.
+while IFS= read -r -d '' script; do
+  sed -i \
+    -e 's#T:AmShellCompat#SYS:qualification-results/m1.5#g' \
+    -e 's#T:AmShellM16#SYS:qualification-results/m1.6#g' \
+    -e 's#T:AmShellM17#SYS:qualification-results/m1.7-m1.9#g' \
+    "$script"
+done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
+
 cat >"$startup" <<'EOF'
 FailAt 21
 SYS:C/Echo "AMSHELL_CI_GUEST_STARTED=1" >SYS:amshell-ci-started.txt
 SYS:C/Echo "startup" >SYS:amshell-ci-stage.txt
 
-; Existing qualification harnesses write their evidence below T:. For hosted
-; CI, point T: at a persistent SYS: directory before running them so evidence
-; survives emulator timeout without any post-run Copy step.
 SYS:C/MakeDir SYS:qualification-results >NIL:
-SYS:C/MakeDir SYS:qualification-results/temp >NIL:
-SYS:C/Assign T: SYS:qualification-results/temp
-SYS:C/Echo "persistent-t" >SYS:amshell-ci-stage.txt
+SYS:C/MakeDir SYS:qualification-results/m1.5 >NIL:
+SYS:C/MakeDir SYS:qualification-results/m1.6 >NIL:
+SYS:C/MakeDir SYS:qualification-results/m1.7-m1.9 >NIL:
+SYS:C/Echo "persistent-results-ready" >SYS:amshell-ci-stage.txt
 
 CD SYS:qualification
 SYS:C/Echo "qualification-execute" >SYS:amshell-ci-stage.txt
@@ -41,10 +52,6 @@ SYS:C/Echo $RC >SYS:amshell-ci-rc.txt
 SYS:C/Echo "AMSHELL_CI_GUEST_COMPLETE=1" >SYS:amshell-ci-complete.txt
 SYS:C/Echo "qualification-complete" >SYS:amshell-ci-stage.txt
 
-; Restore the conventional temp assignment before handing control back to the
-; original AROS startup. Qualification evidence remains on SYS:.
-SYS:C/MakeDir RAM:T >NIL:
-SYS:C/Assign T: RAM:T
 SYS:C/Execute SYS:S/Startup-Sequence.amshell-original
 EOF
 
@@ -75,15 +82,14 @@ fi
 results="$OUT/results"
 rm -rf "$results"
 mkdir -p "$results/m1.5" "$results/m1.6" "$results/m1.7-m1.9" "$results/m1.11"
-persistent_t="$aros_root/qualification-results/temp"
-if [[ -d "$persistent_t/AmShellCompat" ]]; then
-  cp -a "$persistent_t/AmShellCompat/." "$results/m1.5/"
+if [[ -d "$aros_root/qualification-results/m1.5" ]]; then
+  cp -a "$aros_root/qualification-results/m1.5/." "$results/m1.5/"
 fi
-if [[ -d "$persistent_t/AmShellM16" ]]; then
-  cp -a "$persistent_t/AmShellM16/." "$results/m1.6/"
+if [[ -d "$aros_root/qualification-results/m1.6" ]]; then
+  cp -a "$aros_root/qualification-results/m1.6/." "$results/m1.6/"
 fi
-if [[ -d "$persistent_t/AmShellM17" ]]; then
-  cp -a "$persistent_t/AmShellM17/." "$results/m1.7-m1.9/"
+if [[ -d "$aros_root/qualification-results/m1.7-m1.9" ]]; then
+  cp -a "$aros_root/qualification-results/m1.7-m1.9/." "$results/m1.7-m1.9/"
 fi
 cp -a "$aros_root/qualification/m1.11"/native-* "$results/m1.11/" 2>/dev/null || true
 cp "$aros_root/amshell-ci-console.txt" "$OUT/guest-console.txt" 2>/dev/null || true
