@@ -21,11 +21,13 @@ Goal: execute ordinary AmigaDOS command lines without changing their established
 - [x] return-code propagation for executed commands
 - [x] interactive session retains last command RC
 - [x] non-interactive `-c` execution
-- [ ] basic command-file execution
+- [x] basic command-file execution through native `EXECUTE`
 - [x] seed original-Shell differential compatibility corpus
 - [x] automated differential harness and result comparator
 - [x] reproducible M1.5 AmigaOS/FS-UAE qualification bundle
 - [x] run and record first AmigaOS/FS-UAE differential qualification
+- [ ] M1.6 command-file runtime differential qualification
+- [ ] command-file arguments / `.KEY` substitution qualification
 - [ ] broaden `CD` compatibility beyond the conservative standalone baseline
 
 ### M1.1 — non-interactive execution baseline
@@ -60,6 +62,18 @@ The first visible FS-UAE/AmigaOS 2.04 qualification passed 10/10 cases on an
 A500/68000 profile on 2026-09-14. The exact comparator verdict and raw guest
 evidence are recorded in `docs/M1_5_QUALIFICATION.md` and
 `docs/evidence/m1.5/`.
+
+### M1.6 — native command-file execution baseline
+
+A single non-option argument now runs an AmigaDOS command file:
+
+```text
+AmShell scriptfile
+```
+
+AmShell delegates the file to native `EXECUTE` through the existing system-Shell backend. It does not parse the script itself, so established AmigaDOS command-file semantics remain owned by AmigaDOS. The initial scope intentionally excludes command-file arguments until `.KEY`/substitution behaviour has been differentially qualified.
+
+See `docs/M1_6_COMMAND_FILE_EXECUTION.md` and `tests/compat/scripts/basic.script`.
 
 No enhanced syntax is allowed to compromise M1 compatibility.
 
