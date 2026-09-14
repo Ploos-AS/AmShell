@@ -55,25 +55,32 @@ def main() -> int:
     copy_tree(BUILD / "m1.7-qualification", OUT / "m1.7-m1.9")
     copy_tree(BUILD / "m1.11-qualification", OUT / "m1.11")
 
-    # Use one top-level guest script.  Each sub-harness keeps its own result
-    # namespace (T:AmShellCompat, T:AmShellM16, T:AmShellM17, plus M1.11 files).
+    # Use one top-level guest script. Each sub-harness keeps its own result
+    # namespace. T:AmShellM1Stage is diagnostic-only and records the last
+    # reached sub-stage if a hosted guest stops before completion.
     guest = [
         "; AmShell M1 combined visible-FS-UAE qualification",
         "; Baseline: A500/68000 + AmigaOS 2.04",
         "FailAt 20",
+        'Echo "start" >T:AmShellM1Stage',
         'Echo "=== AmShell M1 final qualification starting ==="',
+        'Echo "m1.5" >T:AmShellM1Stage',
         "CD m1.5",
         "Execute run-qualification.script",
         "CD /",
+        'Echo "m1.6" >T:AmShellM1Stage',
         "CD m1.6",
         "Execute run-qualification.script",
         "CD /",
+        'Echo "m1.7-m1.9" >T:AmShellM1Stage',
         "CD m1.7-m1.9",
         "Execute run-qualification.script",
         "CD /",
+        'Echo "m1.11" >T:AmShellM1Stage',
         "CD m1.11",
         "Execute run-native-probe.script",
         "CD /",
+        'Echo "complete" >T:AmShellM1Stage',
         'Echo "=== M1 guest execution complete ==="',
         'Echo "Collect T:AmShellCompat, T:AmShellM16, T:AmShellM17 and m1.11/native-* evidence."',
     ]
@@ -100,6 +107,7 @@ Evidence to collect:
 - T:AmShellCompat/        (M1.5 command differential regression)
 - T:AmShellM16/           (M1.6 command-file regression)
 - T:AmShellM17/           (M1.7/M1.9 argument and .KEY surface)
+- T:AmShellM1Stage        (diagnostic last-stage marker)
 - m1.11/native-*.out/.rc/.cwd (native bare-name implied-CD precedence probe)
 
 Host comparison:
@@ -107,9 +115,9 @@ Host comparison:
 - M1.6: python3 tools/script_compat_compare.py RESULTS_M16
 - M1.7/M1.9: python3 tools/script_args_compat_compare.py RESULTS_M17
 
-M1.11 is intentionally a native semantics probe, not an automatic PASS.  Its
+M1.11 is intentionally a native semantics probe, not an automatic PASS. Its
 stdout, RC and cwd evidence decides whether bare-name implied CD needs a code
-change.  If code changes after interpreting the probe, rerun this complete
+change. If code changes after interpreting the probe, rerun this complete
 bundle before declaring M1 PASS.
 """
     (OUT / "README.txt").write_text(readme, encoding="ascii", newline="\n")
