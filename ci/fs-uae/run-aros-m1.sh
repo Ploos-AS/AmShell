@@ -16,15 +16,12 @@ startup="$(find "$root" -type f -ipath '*/s/startup-sequence' -print -quit)"
 [[ -n "$startup" ]] || { echo "ERROR: AROS ISO lacks S/Startup-Sequence" >&2; exit 1; }
 aros_root="$(dirname "$(dirname "$startup")")"
 
-rm -rf "$aros_root/qualification"
+rm -rf "$aros_root/qualification" "$aros_root/qualification-results"
 cp -a build/m1-final-qualification "$aros_root/qualification"
 cp "$startup" "$startup.amshell-original"
 
-# The standalone qualification harnesses intentionally use T: so normal
-# AmigaOS runs remain self-contained and disposable. Hosted CI needs evidence
-# to survive the emulator timeout, so rewrite only the staged guest copy to
-# persistent SYS: paths. Repository sources and local qualification semantics
-# remain unchanged.
+# Normal AmigaOS qualification uses T:. Hosted CI needs evidence to survive the
+# emulator timeout, so rewrite only the staged guest copy to persistent SYS:.
 while IFS= read -r -d '' script; do
   sed -i \
     -e 's#T:AmShellCompat#SYS:qualification-results/m1.5#g' \
@@ -33,14 +30,16 @@ while IFS= read -r -d '' script; do
     "$script"
 done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
 
-# The hosted AROS Shell has repeatedly returned RC 20 before entering the
-# combined command file at all. Avoid that extra Execute layer entirely in CI.
-# Nested harnesses are still executed from their own current directories.
 if grep -R -n -E 'T:AmShell(Compat|M16|M17)' "$aros_root/qualification" --include='*.script'; then
   echo "ERROR: transient qualification evidence path remained after CI rewrite" >&2
   exit 1
 fi
 
+# AROS has proven unreliable when a qualification command file is launched via
+# Execute. Build one flat Startup-Sequence instead. The individual generated
+# scripts are appended verbatim after the SYS: evidence rewrite. This removes
+# harness-only Execute layers while retaining Execute calls that are themselves
+# part of the compatibility surface under test.
 cat >"$startup" <<'EOF'
 FailAt 21
 SYS:C/Echo "AMSHELL_CI_GUEST_STARTED=1" >SYS:amshell-ci-started.txt
@@ -51,29 +50,39 @@ SYS:C/MakeDir SYS:qualification-results/m1.5 >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.6 >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.7-m1.9 >NIL:
 SYS:C/Echo "persistent-results-ready" >SYS:amshell-ci-stage.txt
-
-; Inline the M1 final sequence. This removes the AROS-specific failing
-; top-level Execute while preserving the same nested qualification harnesses.
 SYS:C/Echo "start" >SYS:amshell-m1-stage.txt
 
 SYS:C/Echo "m1.5" >SYS:amshell-m1-stage.txt
 CD SYS:qualification/m1.5
-Execute run-qualification.script
+Delete SYS:qualification-results/m1.5 ALL QUIET >NIL:
+MakeDir SYS:qualification-results/m1.5 >NIL:
+CD compat
+EOF
+cat "$aros_root/qualification/m1.5/compat/run-native.script" >>"$startup"
+cat "$aros_root/qualification/m1.5/compat/run-amshell.script" >>"$startup"
+cat >>"$startup" <<'EOF'
+CD SYS:qualification/m1.5
 SYS:C/Echo "m1.5-complete" >SYS:amshell-m1-stage.txt
 
 SYS:C/Echo "m1.6" >SYS:amshell-m1-stage.txt
 CD SYS:qualification/m1.6
-Execute run-qualification.script
+EOF
+cat "$aros_root/qualification/m1.6/run-qualification.script" >>"$startup"
+cat >>"$startup" <<'EOF'
 SYS:C/Echo "m1.6-complete" >SYS:amshell-m1-stage.txt
 
 SYS:C/Echo "m1.7-m1.9" >SYS:amshell-m1-stage.txt
 CD SYS:qualification/m1.7-m1.9
-Execute run-qualification.script
+EOF
+cat "$aros_root/qualification/m1.7-m1.9/run-qualification.script" >>"$startup"
+cat >>"$startup" <<'EOF'
 SYS:C/Echo "m1.7-m1.9-complete" >SYS:amshell-m1-stage.txt
 
 SYS:C/Echo "m1.11" >SYS:amshell-m1-stage.txt
 CD SYS:qualification/m1.11
-Execute run-native-probe.script
+EOF
+cat "$aros_root/qualification/m1.11/run-native-probe.script" >>"$startup"
+cat >>"$startup" <<'EOF'
 SYS:C/Echo "m1.11-complete" >SYS:amshell-m1-stage.txt
 
 CD SYS:qualification
@@ -85,6 +94,13 @@ SYS:C/Echo "qualification-returned" >SYS:amshell-ci-stage.txt
 ; Continue normal AROS startup after the qualification sequence.
 Execute SYS:S/Startup-Sequence.amshell-original
 EOF
+
+# Hosted harness Execute calls must now only occur in test data/commands, not
+# as wrappers around the qualification scripts themselves.
+if grep -n -E '^Execute (run-(qualification|native-probe)\.script|SYS:qualification/)' "$startup"; then
+  echo "ERROR: qualification wrapper Execute remained in flat AROS startup" >&2
+  exit 1
+fi
 
 config="$OUT/aros-m1.fs-uae"
 cat >"$config" <<EOF
@@ -133,6 +149,10 @@ cp "$aros_root/amshell-ci-rc.txt" "$OUT/guest-rc.txt" 2>/dev/null || true
 cp "$aros_root/amshell-ci-stage.txt" "$OUT/guest-stage.txt" 2>/dev/null || true
 cp "$aros_root/amshell-m1-stage.txt" "$OUT/m1-stage.txt" 2>/dev/null || true
 
+# Inventory is useful even on comparator failure: it distinguishes missing
+# guest evidence from a real semantic mismatch.
+find "$aros_root/qualification-results" -maxdepth 2 -type f -printf '%P\n' 2>/dev/null | sort >"$OUT/evidence-files.txt" || true
+
 compare_status=NOT_RUN
 if [[ "$status" == PASS ]]; then
   compare_status=PASS
@@ -159,6 +179,7 @@ fi
   if [[ -f "$OUT/m1-stage.txt" ]]; then
     echo "M1_STAGE=$(tr -d '\r\n' < "$OUT/m1-stage.txt")"
   fi
+  echo "EVIDENCE_FILES=$(wc -l < "$OUT/evidence-files.txt" 2>/dev/null || echo 0)"
 } | tee "$OUT/result.txt"
 
 [[ "$status" == PASS && "$compare_status" == PASS ]]
