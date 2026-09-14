@@ -1,0 +1,7 @@
+; M1.7 native EXECUTE argument fixture
+.KEY FIRST/A,SECOND,MODE/K
+Echo AmShell-args-start
+Echo first=<FIRST>
+Echo second=<SECOND>
+Echo mode=<MODE>
+Echo AmShell-args-end
