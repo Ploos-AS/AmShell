@@ -47,6 +47,8 @@ jobs:
             build/fs-uae/aros-m1/fs-uae-version.txt
             build/fs-uae/aros-m1/guest-console.txt
             build/fs-uae/aros-m1/guest-rc.txt
+            build/fs-uae/aros-m1/guest-stage.txt
+            build/fs-uae/aros-m1/m1-stage.txt
             build/fs-uae/aros-m1/m1.5-compare.txt
             build/fs-uae/aros-m1/m1.6-compare.txt
             build/fs-uae/aros-m1/m1.7-m1.9-compare.txt
