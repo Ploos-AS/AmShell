@@ -1,0 +1,6 @@
+; M1.7 native EXECUTE /N and /S fixture
+.KEY COUNT/K/N,VERBOSE/S
+Echo AmShell-types-start
+Echo count=<COUNT>
+Echo verbose=<VERBOSE>
+Echo AmShell-types-end
