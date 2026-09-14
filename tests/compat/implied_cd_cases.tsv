@@ -1,0 +1,5 @@
+# id	setup	command	expectation
+bare-dir-only	mkdir	ProbeDir	native-reference
+bare-command-only	command	ProbeCmd	native-reference
+bare-collision	collision	ProbeBoth	native-reference
+pathlike-dir	mkdir	RAM:ProbePath	native-reference
