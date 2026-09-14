@@ -33,12 +33,22 @@ CD SYS:qualification
 SYS:C/Echo "qualification-execute" >SYS:amshell-ci-stage.txt
 SYS:C/Execute SYS:qualification/run-m1-final.script >SYS:amshell-ci-console.txt
 SYS:C/Echo $RC >SYS:amshell-ci-rc.txt
-SYS:C/Echo "collect" >SYS:amshell-ci-stage.txt
-SYS:C/Copy T:AmShellCompat/#? SYS:qualification-results/m1.5 ALL QUIET
-SYS:C/Copy T:AmShellM16/#? SYS:qualification-results/m1.6 ALL QUIET
-SYS:C/Copy T:AmShellM17/#? SYS:qualification-results/m1.7-m1.9 ALL QUIET
+
+; Qualification execution itself is complete at this point. Persist this before
+; evidence collection so a missing/empty result tree cannot hide that fact.
 SYS:C/Echo "AMSHELL_CI_GUEST_COMPLETE=1" >SYS:amshell-ci-complete.txt
-SYS:C/Echo "complete" >SYS:amshell-ci-stage.txt
+SYS:C/Echo "qualification-complete" >SYS:amshell-ci-stage.txt
+
+; Evidence collection is deliberately best-effort. FailAt 21 lets ordinary
+; RC=20 copy failures continue, while per-copy stage files identify a hang.
+SYS:C/Echo "collect-m1.5" >SYS:amshell-ci-stage.txt
+SYS:C/Copy T:AmShellCompat/#? SYS:qualification-results/m1.5 ALL QUIET
+SYS:C/Echo "collect-m1.6" >SYS:amshell-ci-stage.txt
+SYS:C/Copy T:AmShellM16/#? SYS:qualification-results/m1.6 ALL QUIET
+SYS:C/Echo "collect-m1.7-m1.9" >SYS:amshell-ci-stage.txt
+SYS:C/Copy T:AmShellM17/#? SYS:qualification-results/m1.7-m1.9 ALL QUIET
+SYS:C/Echo "collection-complete" >SYS:amshell-ci-stage.txt
+
 SYS:C/Execute SYS:S/Startup-Sequence.amshell-original
 EOF
 
