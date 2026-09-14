@@ -38,7 +38,9 @@ def main() -> int:
 
     guest = [
         "; AmShell M1.7/M1.9 script-argument differential qualification",
-        "FailAt 20",
+        "; Expected negative cases may legitimately return RC 20. Keep running so",
+        "; their RC/output can be captured and compared against native EXECUTE.",
+        "FailAt 21",
         "MakeDir T:AmShellM17 >NIL:",
     ]
 
@@ -68,7 +70,9 @@ def main() -> int:
         "Copy all files from T:AmShellM17/ to a host results directory, then run:\n"
         "python3 tools/script_args_compat_compare.py RESULTS_DIR\n\n"
         "Each case compares direct native EXECUTE against AmShell using identical\n"
-        "script and outer argument text. No output normalization is expected.\n",
+        "script and outer argument text. No output normalization is expected.\n"
+        "The guest runner uses FailAt 21 because RC 20 is valid evidence for the\n"
+        "intentional negative argument cases and must still be recorded.\n",
         encoding="ascii",
         newline="\n",
     )
