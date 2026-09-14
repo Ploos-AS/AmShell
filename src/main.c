@@ -13,7 +13,7 @@
 #include "exec.h"
 #include "session.h"
 
-#define AMSHELL_VERSION "0.1.0-m1.7"
+#define AMSHELL_VERSION "0.1.0-m1.8"
 #define AMSHELL_LINE_MAX 1024
 
 static void print_usage(const char *program)
@@ -52,8 +52,8 @@ static int interactive_loop(void)
             continue;
         }
 
-        /* EXIT remains the only interactive control command. */
-        if (strcmp(line, "exit") == 0 || strcmp(line, "EXIT") == 0) {
+        /* ENDCLI/ENDSHELL are the native Shell termination commands. */
+        if (amshell_session_should_exit(line)) {
             break;
         }
 
