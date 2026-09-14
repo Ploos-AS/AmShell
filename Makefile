@@ -26,6 +26,7 @@ check:
 	$(PYTHON) tests/test_compat_tools.py
 	$(PYTHON) tests/test_script_compat.py
 	$(PYTHON) tests/test_script_args_compat.py
+	$(PYTHON) tests/test_m1_final_bundle.py
 
 compat-prepare:
 	$(PYTHON) tools/compat_prepare.py
