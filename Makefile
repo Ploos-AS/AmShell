@@ -8,7 +8,7 @@ CPPFLAGS :=
 CFLAGS ?= -Os -Wall -Wextra -Werror -m68000
 LDFLAGS ?=
 
-.PHONY: all clean check
+.PHONY: all clean check compat-prepare
 
 all: $(TARGET)
 
@@ -18,6 +18,10 @@ $(TARGET): $(SOURCES)
 
 check:
 	$(PYTHON) tools/check_repo.py
+	$(PYTHON) tests/test_compat_tools.py
+
+compat-prepare:
+	$(PYTHON) tools/compat_prepare.py
 
 clean:
 	rm -rf build
