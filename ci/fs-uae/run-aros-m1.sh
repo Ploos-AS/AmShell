@@ -49,6 +49,16 @@ FailAt 21
 SYS:C/Echo "AMSHELL_CI_GUEST_STARTED=1" >SYS:amshell-ci-started.txt
 SYS:C/Echo "startup" >SYS:amshell-ci-stage.txt
 
+; The hosted qualification replaces AROS' normal Startup-Sequence and therefore
+; runs before the distribution has installed its normal command search path.
+; AmigaDOS commands such as Echo, Version, Avail, Assign, Type and Delete are
+; intentionally submitted without a C: prefix by the compatibility corpus.
+; Install SYS:C in the path first so those commands exercise the shell instead
+; of failing with RETURN_ERROR merely because CI intercepted startup too early.
+SYS:C/Path SYS:C ADD
+SYS:C/Path >SYS:amshell-ci-path.txt
+SYS:C/Echo "command-path-ready" >SYS:amshell-ci-stage.txt
+
 SYS:C/MakeDir SYS:qualification-results >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.5 >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.6 >NIL:
@@ -158,6 +168,7 @@ cp -a "$aros_root/qualification/m1.11"/native-* "$results/m1.11/" 2>/dev/null ||
 cp "$aros_root/amshell-ci-rc.txt" "$OUT/guest-rc.txt" 2>/dev/null || true
 cp "$aros_root/amshell-ci-stage.txt" "$OUT/guest-stage.txt" 2>/dev/null || true
 cp "$aros_root/amshell-m1-stage.txt" "$OUT/m1-stage.txt" 2>/dev/null || true
+cp "$aros_root/amshell-ci-path.txt" "$OUT/guest-path.txt" 2>/dev/null || true
 
 # Inventory is useful even on comparator failure: it distinguishes missing
 # guest evidence from a real semantic mismatch.
