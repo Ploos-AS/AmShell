@@ -8,28 +8,22 @@ mkdir -p "$OUT" build
 docker pull "$IMAGE"
 docker image inspect "$IMAGE" --format '{{join .RepoDigests "\n"}}' | tee "$OUT/toolchain-image.txt"
 
-docker run --rm \
-  -v "$PWD:/work" \
-  -w /work \
-  "$IMAGE" \
-  m68k-amigaos-gcc \
-    -Os -Wall -Wextra -Werror -m68000 \
-    -o build/AmShell \
-    src/main.c src/exec.c src/session.c
+build_one() {
+  local output="$1"
+  shift
+  docker run --rm -v "$PWD:/work" -w /work "$IMAGE" \
+    m68k-amigaos-gcc -Os -Wall -Wextra -Werror -m68000 -o "$output" "$@"
+}
 
-docker run --rm \
-  -v "$PWD:/work" \
-  -w /work \
-  "$IMAGE" \
-  m68k-amigaos-gcc \
-    -Os -Wall -Wextra -Werror -m68000 \
-    -o build/CompatNative \
-    tools/compat_native.c
+build_one build/AmShell src/main.c src/exec.c src/session.c
+build_one build/CompatNative tools/compat_native.c
+build_one build/ArosCaptureProbe tools/aros_capture_probe.c
 
 cp build/AmShell "$OUT/AmShell"
 cp build/CompatNative "$OUT/CompatNative"
-file "$OUT/AmShell" "$OUT/CompatNative" | tee "$OUT/file.txt"
-sha256sum "$OUT/AmShell" "$OUT/CompatNative" | tee "$OUT/sha256.txt"
+cp build/ArosCaptureProbe "$OUT/ArosCaptureProbe"
+file "$OUT/AmShell" "$OUT/CompatNative" "$OUT/ArosCaptureProbe" | tee "$OUT/file.txt"
+sha256sum "$OUT/AmShell" "$OUT/CompatNative" "$OUT/ArosCaptureProbe" | tee "$OUT/sha256.txt"
 
 python3 tools/m1_final_bundle.py
 
