@@ -21,6 +21,14 @@
 static long run_system_shell(const char *command)
 {
     struct TagItem tags[] = {
+        /*
+         * Pass the current process streams explicitly.  This preserves the
+         * caller's redirection when SystemTagList() starts the system Shell.
+         * Classic AmigaDOS normally inherits these streams; AROS' hosted CI
+         * path does not do so reliably when the tags are omitted.
+         */
+        { SYS_Input, (ULONG)Input() },
+        { SYS_Output, (ULONG)Output() },
         { SYS_UserShell, FALSE },
         { TAG_DONE, 0 }
     };
