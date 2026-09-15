@@ -3,16 +3,19 @@
 #include <dos/dostags.h>
 #include <proto/dos.h>
 
-static void write_rc(const char *path, LONG rc)
+static void write_probe_rc(const char *path, LONG rc)
 {
     BPTR fh;
-    char buf[32];
-    LONG n;
+    char digit;
 
     fh = Open((STRPTR)path, MODE_NEWFILE);
-    if (!fh) return;
-    n = VPrintf((STRPTR)"%ld\n", (APTR)&rc);
-    (void)n;
+    if (!fh) {
+        return;
+    }
+
+    digit = (rc == RETURN_OK) ? '0' : '1';
+    Write(fh, &digit, 1);
+    Write(fh, (APTR)"\n", 1);
     Close(fh);
 }
 
@@ -31,15 +34,7 @@ int main(void)
     }
 
     rc = SystemTagList((STRPTR)"Echo shell-redirection >RAM:amshell-probe-redir.txt", 0);
-    {
-        BPTR fh = Open((STRPTR)"RAM:amshell-probe-redir.rc", MODE_NEWFILE);
-        if (fh) {
-            char digit = (rc == 0) ? '0' : '1';
-            Write(fh, &digit, 1);
-            Write(fh, (APTR)"\n", 1);
-            Close(fh);
-        }
-    }
+    write_probe_rc("RAM:amshell-probe-redir.rc", rc);
 
     sysout = Open((STRPTR)"RAM:amshell-probe-sysout.txt", MODE_NEWFILE);
     if (sysout) {
@@ -53,15 +48,7 @@ int main(void)
         tags[3].ti_Data = 0;
         rc = SystemTagList((STRPTR)"Echo systemtag-output", tags);
         Close(sysout);
-        {
-            BPTR fh = Open((STRPTR)"RAM:amshell-probe-sysout.rc", MODE_NEWFILE);
-            if (fh) {
-                char digit = (rc == 0) ? '0' : '1';
-                Write(fh, &digit, 1);
-                Write(fh, (APTR)"\n", 1);
-                Close(fh);
-            }
-        }
+        write_probe_rc("RAM:amshell-probe-sysout.rc", rc);
     }
 
     return RETURN_OK;
