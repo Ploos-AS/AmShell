@@ -24,20 +24,20 @@ done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
 if grep -R -n -E 'T:AmShell(Compat|M16|M17)' "$aros_root/qualification" --include='*.script'; then exit 1; fi
 
 # The hosted AROS startup is flattened and should not depend on current-directory
-# command lookup or parent-directory spelling. Rewrite only the hosted copy of
-# each qualification runner to absolute SYS: launchers. The portable/classic
+# command lookup or relative command-file paths. Rewrite only the hosted copy of
+# each qualification runner to absolute SYS: paths. The portable/classic
 # qualification bundle remains unchanged.
 sed -i \
-  -e 's#^/CompatNative #SYS:qualification/m1.5/CompatNative #' \
+  -e 's#^/CompatNative cases/#SYS:qualification/m1.5/CompatNative SYS:qualification/m1.5/compat/cases/#' \
   -e 's#^/AmShell #SYS:qualification/m1.5/AmShell #' \
   "$aros_root/qualification/m1.5/compat/run-native.script" \
   "$aros_root/qualification/m1.5/compat/run-amshell.script"
 sed -i \
-  -e 's#^CompatNative #SYS:qualification/m1.6/CompatNative #' \
+  -e 's#^CompatNative native-command.txt #SYS:qualification/m1.6/CompatNative SYS:qualification/m1.6/native-command.txt #' \
   -e 's#^AmShell #SYS:qualification/m1.6/AmShell #' \
   "$aros_root/qualification/m1.6/run-qualification.script"
 sed -i \
-  -e 's#^CompatNative #SYS:qualification/m1.7-m1.9/CompatNative #' \
+  -e 's#^CompatNative commands/#SYS:qualification/m1.7-m1.9/CompatNative SYS:qualification/m1.7-m1.9/commands/#' \
   -e 's#^AmShell #SYS:qualification/m1.7-m1.9/AmShell #' \
   "$aros_root/qualification/m1.7-m1.9/run-qualification.script"
 
