@@ -23,21 +23,23 @@ while IFS= read -r -d '' script; do
 done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
 if grep -R -n -E 'T:AmShell(Compat|M16|M17)' "$aros_root/qualification" --include='*.script'; then exit 1; fi
 
-# The hosted AROS startup is flattened and should not depend on current-directory
-# command lookup or relative command-file paths. Rewrite only the hosted copy of
-# each qualification runner to absolute SYS: paths. The portable/classic
-# qualification bundle remains unchanged.
+# Hosted AROS is a provisional compatibility gate, not the authoritative
+# AmigaOS 2.04 qualification.  Run its native reference directly through
+# AROS C:Execute and capture at the outer Shell.  The CompatNative helper is
+# retained unchanged in the portable/classic bundles because it is required
+# there to avoid pre-V40 Execute capture limitations.  AROS' own capture probe
+# verifies that Shell redirection works in this hosted environment.
 sed -i \
-  -e 's#^/CompatNative cases/#SYS:qualification/m1.5/CompatNative SYS:qualification/m1.5/compat/cases/#' \
+  -e 's#^/CompatNative cases/\([^ ]*\) \(.*\)$#SYS:C/Execute SYS:qualification/m1.5/compat/cases/\1 >\2#' \
   -e 's#^/AmShell #SYS:qualification/m1.5/AmShell #' \
   "$aros_root/qualification/m1.5/compat/run-native.script" \
   "$aros_root/qualification/m1.5/compat/run-amshell.script"
 sed -i \
-  -e 's#^CompatNative native-command.txt #SYS:qualification/m1.6/CompatNative SYS:qualification/m1.6/native-command.txt #' \
+  -e 's#^CompatNative native-command.txt \(.*\)$#SYS:C/Execute SYS:qualification/m1.6/native-command.txt >\1#' \
   -e 's#^AmShell #SYS:qualification/m1.6/AmShell #' \
   "$aros_root/qualification/m1.6/run-qualification.script"
 sed -i \
-  -e 's#^CompatNative commands/#SYS:qualification/m1.7-m1.9/CompatNative SYS:qualification/m1.7-m1.9/commands/#' \
+  -e 's#^CompatNative commands/\([^ ]*\) \(.*\)$#SYS:C/Execute SYS:qualification/m1.7-m1.9/commands/\1 >\2#' \
   -e 's#^AmShell #SYS:qualification/m1.7-m1.9/AmShell #' \
   "$aros_root/qualification/m1.7-m1.9/run-qualification.script"
 
