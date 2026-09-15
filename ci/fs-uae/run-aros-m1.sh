@@ -22,6 +22,25 @@ while IFS= read -r -d '' script; do
   sed -i -e 's#T:AmShellCompat#RAM:AmShellCompat#g' -e 's#T:AmShellM16#RAM:AmShellM16#g' -e 's#T:AmShellM17#RAM:AmShellM17#g' "$script"
 done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
 if grep -R -n -E 'T:AmShell(Compat|M16|M17)' "$aros_root/qualification" --include='*.script'; then exit 1; fi
+
+# The hosted AROS startup is flattened and should not depend on current-directory
+# command lookup or parent-directory spelling. Rewrite only the hosted copy of
+# each qualification runner to absolute SYS: launchers. The portable/classic
+# qualification bundle remains unchanged.
+sed -i \
+  -e 's#^/CompatNative #SYS:qualification/m1.5/CompatNative #' \
+  -e 's#^/AmShell #SYS:qualification/m1.5/AmShell #' \
+  "$aros_root/qualification/m1.5/compat/run-native.script" \
+  "$aros_root/qualification/m1.5/compat/run-amshell.script"
+sed -i \
+  -e 's#^CompatNative #SYS:qualification/m1.6/CompatNative #' \
+  -e 's#^AmShell #SYS:qualification/m1.6/AmShell #' \
+  "$aros_root/qualification/m1.6/run-qualification.script"
+sed -i \
+  -e 's#^CompatNative #SYS:qualification/m1.7-m1.9/CompatNative #' \
+  -e 's#^AmShell #SYS:qualification/m1.7-m1.9/AmShell #' \
+  "$aros_root/qualification/m1.7-m1.9/run-qualification.script"
+
 append_flat_script() { sed '/^[[:space:]]*FailAt[[:space:]]/d' "$1" >>"$startup"; }
 
 cat >"$startup" <<'EOF'
@@ -31,14 +50,10 @@ SYS:C/Assign C: SYS:C
 SYS:C/Path SYS:C ADD
 Echo "unqualified-command-probe" >SYS:amshell-ci-command-probe.txt
 SYS:C/Echo "$RC" >SYS:amshell-ci-command-probe.rc
-
-; AROS-only diagnostic: distinguish DOS Write(), Shell > redirection and
-; SystemTagList(SYS_Output). This does not alter AmShell or comparator rules.
 SYS:qualification/ArosCaptureProbe
 SYS:C/Echo "$RC" >SYS:amshell-capture-probe.rc
 SYS:C/Copy RAM:amshell-probe-#? SYS: ALL QUIET
 SYS:C/Echo "$RC" >SYS:amshell-capture-probe-copy.rc
-
 SYS:C/MakeDir SYS:qualification-results >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.5 >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.6 >NIL:
@@ -102,24 +117,15 @@ guest_rc=""; [[ -f "$aros_root/amshell-ci-rc.txt" ]] && guest_rc="$(tr -d '\r\n 
 status=FAIL; observation=guest_result_missing
 if [[ -f "$aros_root/amshell-ci-returned.txt" && "$guest_rc" == 0 ]]; then status=PASS; observation=combined_m1_guest_bundle_completed; fi
 results="$OUT/results"; rm -rf "$results"; mkdir -p "$results"/{m1.5,m1.6,m1.7-m1.9,m1.11}
-# AmigaDOS Copy preserves the source directory name when recursively copying a
-# staged RAM: directory into an existing destination. Unwrap that one staging
-# level on the host so the comparators see the same layout as the classic T:
-# qualification harness.
 declare -A stage_dir=( [m1.5]=AmShellCompat [m1.6]=AmShellM16 [m1.7-m1.9]=AmShellM17 )
 for stage in m1.5 m1.6 m1.7-m1.9; do
   src="$aros_root/qualification-results/$stage"
   [[ -d "$src" ]] || continue
-  if [[ -d "$src/${stage_dir[$stage]}" ]]; then
-    cp -a "$src/${stage_dir[$stage]}/." "$results/$stage/"
-  else
-    cp -a "$src/." "$results/$stage/"
-  fi
+  if [[ -d "$src/${stage_dir[$stage]}" ]]; then cp -a "$src/${stage_dir[$stage]}/." "$results/$stage/"; else cp -a "$src/." "$results/$stage/"; fi
 done
 cp -a "$aros_root/qualification/m1.11"/native-* "$results/m1.11/" 2>/dev/null || true
 for f in amshell-ci-rc.txt amshell-ci-stage.txt amshell-m1-stage.txt amshell-ci-command-probe.rc amshell-ci-m1.5-copy.rc amshell-ci-m1.6-copy.rc amshell-ci-m1.7-copy.rc amshell-capture-probe.rc amshell-capture-probe-copy.rc amshell-probe-direct.txt amshell-probe-redir.txt amshell-probe-redir.rc amshell-probe-sysout.txt amshell-probe-sysout.rc; do cp "$aros_root/$f" "$OUT/$f" 2>/dev/null || true; done
 find "$aros_root/qualification-results" -maxdepth 3 -type f -printf '%P\n' 2>/dev/null | sort >"$OUT/evidence-files.txt" || true
-
 compare_status=NOT_RUN
 if [[ "$status" == PASS ]]; then
  compare_status=PASS
@@ -127,13 +133,10 @@ if [[ "$status" == PASS ]]; then
  python3 tools/script_compat_compare.py "$results/m1.6" | tee "$OUT/m1.6-compare.txt" || compare_status=FAIL
  python3 tools/script_args_compat_compare.py "$results/m1.7-m1.9" | tee "$OUT/m1.7-m1.9-compare.txt" || compare_status=FAIL
 fi
-
 probe_state() { local f="$1"; if [[ -f "$OUT/$f" ]]; then printf '%s:%s' "$f" "$(wc -c < "$OUT/$f")"; else printf '%s:MISSING' "$f"; fi; }
 {
  echo "STATUS=$status"; echo "COMPARE_STATUS=$compare_status"; echo "GATE=AROS_M1_COMBINED_RUNTIME"; echo "QUALIFICATION=provisional-ci-only"; echo "FS_UAE_EXIT=$fs_rc"; echo "OBSERVATION=$observation"; echo "GUEST_RC=$guest_rc"
- echo "CAPTURE_DIRECT=$(probe_state amshell-probe-direct.txt)"
- echo "CAPTURE_REDIRECT=$(probe_state amshell-probe-redir.txt)"
- echo "CAPTURE_SYSOUTPUT=$(probe_state amshell-probe-sysout.txt)"
+ echo "CAPTURE_DIRECT=$(probe_state amshell-probe-direct.txt)"; echo "CAPTURE_REDIRECT=$(probe_state amshell-probe-redir.txt)"; echo "CAPTURE_SYSOUTPUT=$(probe_state amshell-probe-sysout.txt)"
  [[ -f "$OUT/amshell-probe-redir.rc" ]] && echo "CAPTURE_REDIRECT_RC=$(tr -d '\r\n ' < "$OUT/amshell-probe-redir.rc")"
  [[ -f "$OUT/amshell-probe-sysout.rc" ]] && echo "CAPTURE_SYSOUTPUT_RC=$(tr -d '\r\n ' < "$OUT/amshell-probe-sysout.rc")"
  echo "EVIDENCE_FILES=$(wc -l < "$OUT/evidence-files.txt" 2>/dev/null || echo 0)"
