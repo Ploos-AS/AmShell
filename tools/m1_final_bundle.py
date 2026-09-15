@@ -33,11 +33,14 @@ def main() -> int:
 
     # Build each established qualification package with its existing tool so
     # the final bundle cannot silently diverge from the standalone harnesses.
+    # The M1.5 runners execute from the bundle's compat/ child directory.
+    # AmigaDOS uses a leading slash for the parent directory; "../" is Unix
+    # syntax and is not a compatible path spelling on the AmigaOS baseline.
     run_tool(
         str(ROOT / "tools" / "compat_bundle.py"),
         "--out", str(BUILD / "m1.5-final-stage"),
-        "--amshell", "../AmShell",
-        "--native-launcher", "../CompatNative",
+        "--amshell", "/AmShell",
+        "--native-launcher", "/CompatNative",
     )
     run_tool(str(ROOT / "tools" / "script_compat_bundle.py"))
     run_tool(str(ROOT / "tools" / "script_args_compat_bundle.py"))
