@@ -102,10 +102,23 @@ guest_rc=""; [[ -f "$aros_root/amshell-ci-rc.txt" ]] && guest_rc="$(tr -d '\r\n 
 status=FAIL; observation=guest_result_missing
 if [[ -f "$aros_root/amshell-ci-returned.txt" && "$guest_rc" == 0 ]]; then status=PASS; observation=combined_m1_guest_bundle_completed; fi
 results="$OUT/results"; rm -rf "$results"; mkdir -p "$results"/{m1.5,m1.6,m1.7-m1.9,m1.11}
-for stage in m1.5 m1.6 m1.7-m1.9; do [[ ! -d "$aros_root/qualification-results/$stage" ]] || cp -a "$aros_root/qualification-results/$stage/." "$results/$stage/"; done
+# AmigaDOS Copy preserves the source directory name when recursively copying a
+# staged RAM: directory into an existing destination. Unwrap that one staging
+# level on the host so the comparators see the same layout as the classic T:
+# qualification harness.
+declare -A stage_dir=( [m1.5]=AmShellCompat [m1.6]=AmShellM16 [m1.7-m1.9]=AmShellM17 )
+for stage in m1.5 m1.6 m1.7-m1.9; do
+  src="$aros_root/qualification-results/$stage"
+  [[ -d "$src" ]] || continue
+  if [[ -d "$src/${stage_dir[$stage]}" ]]; then
+    cp -a "$src/${stage_dir[$stage]}/." "$results/$stage/"
+  else
+    cp -a "$src/." "$results/$stage/"
+  fi
+done
 cp -a "$aros_root/qualification/m1.11"/native-* "$results/m1.11/" 2>/dev/null || true
 for f in amshell-ci-rc.txt amshell-ci-stage.txt amshell-m1-stage.txt amshell-ci-command-probe.rc amshell-ci-m1.5-copy.rc amshell-ci-m1.6-copy.rc amshell-ci-m1.7-copy.rc amshell-capture-probe.rc amshell-capture-probe-copy.rc amshell-probe-direct.txt amshell-probe-redir.txt amshell-probe-redir.rc amshell-probe-sysout.txt amshell-probe-sysout.rc; do cp "$aros_root/$f" "$OUT/$f" 2>/dev/null || true; done
-find "$aros_root/qualification-results" -maxdepth 2 -type f -printf '%P\n' 2>/dev/null | sort >"$OUT/evidence-files.txt" || true
+find "$aros_root/qualification-results" -maxdepth 3 -type f -printf '%P\n' 2>/dev/null | sort >"$OUT/evidence-files.txt" || true
 
 compare_status=NOT_RUN
 if [[ "$status" == PASS ]]; then
