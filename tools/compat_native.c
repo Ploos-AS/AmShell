@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     BPTR output;
     LONG length;
     LONG rc;
-    struct TagItem tags[3];
+    struct TagItem tags[4];
 
     if (argc != 3) {
         return fail("CompatNative: expected COMMAND_FILE OUTPUT_FILE\n");
@@ -58,18 +58,20 @@ int main(int argc, char **argv)
         return fail("CompatNative: cannot open output file\n");
     }
 
-    tags[0].ti_Tag = SYS_Output;
-    tags[0].ti_Data = (ULONG)output;
     /*
-     * Match AmShell's compatibility execution path: use the boot/system
-     * Shell rather than a configured UserShell. Besides keeping the native
-     * reference semantically aligned with AmShell, this also avoids AROS
-     * UserShell variants that do not preserve the supplied SYS_Output handle.
+     * Give the reference Shell both streams explicitly.  In particular, do
+     * not rely on an AROS SystemTagList() child implicitly inheriting the
+     * launcher's output stream.  The output handle remains the same dedicated
+     * capture handle used by the classic AmigaOS qualification harness.
      */
-    tags[1].ti_Tag = SYS_UserShell;
-    tags[1].ti_Data = FALSE;
-    tags[2].ti_Tag = TAG_DONE;
-    tags[2].ti_Data = 0;
+    tags[0].ti_Tag = SYS_Input;
+    tags[0].ti_Data = (ULONG)Input();
+    tags[1].ti_Tag = SYS_Output;
+    tags[1].ti_Data = (ULONG)output;
+    tags[2].ti_Tag = SYS_UserShell;
+    tags[2].ti_Data = FALSE;
+    tags[3].ti_Tag = TAG_DONE;
+    tags[3].ti_Data = 0;
 
     rc = SystemTagList((STRPTR)command, tags);
     Close(output);
