@@ -47,6 +47,10 @@ jobs:
             build/fs-uae/aros-m1/fs-uae-version.txt
             build/fs-uae/aros-m1/startup-sequence-patched.txt
             build/fs-uae/aros-m1/amshell-ci-sequence.txt
+            build/fs-uae/aros-m1/amshell-ci-boot-*.txt
+            build/fs-uae/aros-m1/amshell-ci-before-user-startup.txt
+            build/fs-uae/aros-m1/amshell-ci-after-user-startup.txt
+            build/fs-uae/aros-m1/amshell-ci-started.txt
             build/fs-uae/aros-m1/guest-console.txt
             build/fs-uae/aros-m1/guest-rc.txt
             build/fs-uae/aros-m1/guest-stage.txt
