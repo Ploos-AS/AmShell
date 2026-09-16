@@ -43,33 +43,17 @@ lines = p.read_text(errors="surrogateescape").splitlines(True)
 invoke = 'C:Echo "reached-ci-hook" >SYS:amshell-ci-boot-hook.txt\nC:Execute SYS:S/AmShell-CI\n'
 inserted = False
 out = []
-
-# First marker: proves the restored original Startup-Sequence itself starts.
 out.append('C:Echo "startup-enter" >SYS:amshell-ci-boot-enter.txt\n')
-
 for line in lines:
     stripped = line.strip()
-
-    # Mark immediately before User-Startup, if present.
     if re.match(r'^If\s+EXISTS\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
         out.append('C:Echo "before-user-startup" >SYS:amshell-ci-before-user-startup.txt\n')
-
-    # Mark immediately after the Execute S:User-Startup line. This shows
-    # whether User-Startup returns control to Startup-Sequence.
     if re.match(r'^Execute\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
         out.append(line)
         out.append('C:Echo "after-user-startup" >SYS:amshell-ci-after-user-startup.txt\n')
         continue
-
-    wanderer_guard = re.match(
-        r'^\s*If\s+EXISTS\s+["\']?WANDERER:Wanderer["\']?(?:\s|$)',
-        line,
-        re.I,
-    )
-    gui_launch = (
-        re.match(r'^\s*(?:SYS:C/)?LoadWB(?:\s|$)', line, re.I)
-        or re.match(r'^\s*(?:WANDERER:)?Wanderer(?:\s|$)', line, re.I)
-    )
+    wanderer_guard = re.match(r'^\s*If\s+EXISTS\s+["\']?WANDERER:Wanderer["\']?(?:\s|$)', line, re.I)
+    gui_launch = (re.match(r'^\s*(?:SYS:C/)?LoadWB(?:\s|$)', line, re.I) or re.match(r'^\s*(?:WANDERER:)?Wanderer(?:\s|$)', line, re.I))
     if not inserted and (wanderer_guard or gui_launch):
         out.append('; AmShell CI: run after core AROS startup, before GUI shell guard\n')
         out.append(invoke)
@@ -80,12 +64,30 @@ if not inserted:
 p.write_text(''.join(out), errors="surrogateescape")
 PY_STARTUP
 
-# Preserve both sequences as evidence so future AROS image changes are visible.
 cp "$startup" "$OUT/startup-sequence-patched.txt"
 cp "$ci_script" "$OUT/amshell-ci-sequence.txt"
 
 '''
-Path(sys.argv[2]).write_text(src.replace(needle, block + needle, 1))
+
+# The base runner previously never copied our boot marker files out of the
+# emulated SYS: volume. Preserve them after FS-UAE returns, before result.txt
+# is assembled, so a missing marker is real evidence rather than an artifact
+# collection omission.
+postneedle = 'guest_rc=""; [[ -f "$aros_root/amshell-ci-rc.txt" ]]'
+postblock = r'''for f in \
+  amshell-ci-boot-enter.txt \
+  amshell-ci-before-user-startup.txt \
+  amshell-ci-after-user-startup.txt \
+  amshell-ci-boot-hook.txt \
+  amshell-ci-started.txt; do
+  cp "$aros_root/$f" "$OUT/$f" 2>/dev/null || true
+done
+'''
+if postneedle not in src:
+    raise SystemExit("ERROR: guest result collection point not found")
+src = src.replace(needle, block + needle, 1)
+src = src.replace(postneedle, postblock + postneedle, 1)
+Path(sys.argv[2]).write_text(src)
 PY
 
 chmod +x "$tmp"
