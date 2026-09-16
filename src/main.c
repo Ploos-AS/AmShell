@@ -16,9 +16,19 @@
 #define AMSHELL_VERSION "0.1.0-m1.10"
 #define AMSHELL_LINE_MAX 1024
 
-static void print_usage(const char *program)
+static void print_usage(void)
 {
-    printf("Usage: %s [--version] [--help] [-c \"command\"] [command-file [args...]]\n", program);
+    /*
+     * Keep the 68000/no-FPU baseline free of formatted stdio.  Bebbo's
+     * printf family can pull floating-point formatting support (and its
+     * mathieeedoubbas.library runtime dependency) into an otherwise
+     * integer-only program.
+     */
+    fputs(
+        "Usage: AmShell [--version] [--help] [-c \"command\"] "
+        "[command-file [args...]]\n",
+        stdout
+    );
 }
 
 static void trim_line_end(char *line)
@@ -88,7 +98,7 @@ int main(int argc, char **argv)
     }
 
     if (argc == 2 && strcmp(argv[1], "--help") == 0) {
-        print_usage(argv[0]);
+        print_usage();
         return RETURN_OK;
     }
 
@@ -103,6 +113,6 @@ int main(int argc, char **argv)
     }
 
     fputs("AmShell: unsupported arguments\n", stderr);
-    print_usage(argv[0]);
+    print_usage();
     return RETURN_FAIL;
 }
