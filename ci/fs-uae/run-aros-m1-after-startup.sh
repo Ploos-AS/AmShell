@@ -30,10 +30,9 @@ cp "$startup" "$ci_script"
 sed -i '/^[[:space:]]*Execute[[:space:]]\+SYS:S\/Startup-Sequence\.amshell-original[[:space:]]*$/d' "$ci_script"
 cp "$startup.amshell-original" "$startup"
 
-# AROS uses Wanderer rather than LoadWB in this image. Inject before the GUI
-# guard, after the normal startup has established C:, PATH and the rest of the
-# command environment. Use C:Execute explicitly: this avoids relying on PATH
-# lookup for the very command used to enter the qualification script.
+# Instrument the real boot path with marker files. These deliberately use
+# fully-qualified C: commands so each marker tells us how far Startup-Sequence
+# actually got without depending on PATH lookup.
 python3 - "$startup" <<'PY_STARTUP'
 from pathlib import Path
 import re
@@ -41,10 +40,27 @@ import sys
 
 p = Path(sys.argv[1])
 lines = p.read_text(errors="surrogateescape").splitlines(True)
-invoke = 'C:Execute SYS:S/AmShell-CI\n'
+invoke = 'C:Echo "reached-ci-hook" >SYS:amshell-ci-boot-hook.txt\nC:Execute SYS:S/AmShell-CI\n'
 inserted = False
 out = []
+
+# First marker: proves the restored original Startup-Sequence itself starts.
+out.append('C:Echo "startup-enter" >SYS:amshell-ci-boot-enter.txt\n')
+
 for line in lines:
+    stripped = line.strip()
+
+    # Mark immediately before User-Startup, if present.
+    if re.match(r'^If\s+EXISTS\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
+        out.append('C:Echo "before-user-startup" >SYS:amshell-ci-before-user-startup.txt\n')
+
+    # Mark immediately after the Execute S:User-Startup line. This shows
+    # whether User-Startup returns control to Startup-Sequence.
+    if re.match(r'^Execute\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
+        out.append(line)
+        out.append('C:Echo "after-user-startup" >SYS:amshell-ci-after-user-startup.txt\n')
+        continue
+
     wanderer_guard = re.match(
         r'^\s*If\s+EXISTS\s+["\']?WANDERER:Wanderer["\']?(?:\s|$)',
         line,
