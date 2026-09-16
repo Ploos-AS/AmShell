@@ -24,11 +24,8 @@ done < <(find "$aros_root/qualification" -type f -name '*.script' -print0)
 if grep -R -n -E 'T:AmShell(Compat|M16|M17)' "$aros_root/qualification" --include='*.script'; then exit 1; fi
 
 # Hosted AROS is a provisional compatibility gate, not the authoritative
-# AmigaOS 2.04 qualification.  Run its native reference directly through
-# AROS C:Execute and capture at the outer Shell.  The CompatNative helper is
-# retained unchanged in the portable/classic bundles because it is required
-# there to avoid pre-V40 Execute capture limitations.  AROS' own capture probe
-# verifies that Shell redirection works in this hosted environment.
+# AmigaOS 2.04 qualification. Run its native reference directly through
+# AROS C:Execute and capture at the outer Shell.
 sed -i \
   -e 's#^/CompatNative cases/\([^ ]*\) \(.*\)$#SYS:C/Execute SYS:qualification/m1.5/compat/cases/\1 >\2#' \
   -e 's#^/AmShell #SYS:qualification/m1.5/AmShell #' \
@@ -56,6 +53,15 @@ SYS:qualification/ArosCaptureProbe
 SYS:C/Echo "$RC" >SYS:amshell-capture-probe.rc
 SYS:C/Copy RAM:amshell-probe-#? SYS: ALL QUIET
 SYS:C/Echo "$RC" >SYS:amshell-capture-probe-copy.rc
+; Pinpoint launch failures before the differential bundle. These probes are
+; evidence only and do not alter AmShell production semantics.
+SYS:qualification/m1.5/AmShell --version >SYS:amshell-ci-version-probe.out
+SYS:C/Echo "$RC" >SYS:amshell-ci-version-probe.rc
+SYS:qualification/m1.5/AmShell -c "Echo amshell-launch-probe" >SYS:amshell-ci-amshell-probe.out
+SYS:C/Echo "$RC" >SYS:amshell-ci-amshell-probe.rc
+SYS:C/Echo "Echo execute-launch-probe" >RAM:amshell-ci-execute-fixture.script
+SYS:C/Execute RAM:amshell-ci-execute-fixture.script >SYS:amshell-ci-execute-probe.out
+SYS:C/Echo "$RC" >SYS:amshell-ci-execute-probe.rc
 SYS:C/MakeDir SYS:qualification-results >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.5 >NIL:
 SYS:C/MakeDir SYS:qualification-results/m1.6 >NIL:
@@ -126,7 +132,7 @@ for stage in m1.5 m1.6 m1.7-m1.9; do
   if [[ -d "$src/${stage_dir[$stage]}" ]]; then cp -a "$src/${stage_dir[$stage]}/." "$results/$stage/"; else cp -a "$src/." "$results/$stage/"; fi
 done
 cp -a "$aros_root/qualification/m1.11"/native-* "$results/m1.11/" 2>/dev/null || true
-for f in amshell-ci-rc.txt amshell-ci-stage.txt amshell-m1-stage.txt amshell-ci-command-probe.rc amshell-ci-m1.5-copy.rc amshell-ci-m1.6-copy.rc amshell-ci-m1.7-copy.rc amshell-capture-probe.rc amshell-capture-probe-copy.rc amshell-probe-direct.txt amshell-probe-redir.txt amshell-probe-redir.rc amshell-probe-sysout.txt amshell-probe-sysout.rc; do cp "$aros_root/$f" "$OUT/$f" 2>/dev/null || true; done
+for f in amshell-ci-rc.txt amshell-ci-stage.txt amshell-m1-stage.txt amshell-ci-command-probe.rc amshell-ci-m1.5-copy.rc amshell-ci-m1.6-copy.rc amshell-ci-m1.7-copy.rc amshell-capture-probe.rc amshell-capture-probe-copy.rc amshell-probe-direct.txt amshell-probe-redir.txt amshell-probe-redir.rc amshell-probe-sysout.txt amshell-probe-sysout.rc amshell-ci-version-probe.out amshell-ci-version-probe.rc amshell-ci-amshell-probe.out amshell-ci-amshell-probe.rc amshell-ci-execute-probe.out amshell-ci-execute-probe.rc; do cp "$aros_root/$f" "$OUT/$f" 2>/dev/null || true; done
 find "$aros_root/qualification-results" -maxdepth 3 -type f -printf '%P\n' 2>/dev/null | sort >"$OUT/evidence-files.txt" || true
 compare_status=NOT_RUN
 if [[ "$status" == PASS ]]; then
@@ -136,11 +142,15 @@ if [[ "$status" == PASS ]]; then
  python3 tools/script_args_compat_compare.py "$results/m1.7-m1.9" | tee "$OUT/m1.7-m1.9-compare.txt" || compare_status=FAIL
 fi
 probe_state() { local f="$1"; if [[ -f "$OUT/$f" ]]; then printf '%s:%s' "$f" "$(wc -c < "$OUT/$f")"; else printf '%s:MISSING' "$f"; fi; }
+probe_rc() { local f="$1"; if [[ -f "$OUT/$f" ]]; then tr -d '\r\n ' < "$OUT/$f"; else printf MISSING; fi; }
 {
  echo "STATUS=$status"; echo "COMPARE_STATUS=$compare_status"; echo "GATE=AROS_M1_COMBINED_RUNTIME"; echo "QUALIFICATION=provisional-ci-only"; echo "FS_UAE_EXIT=$fs_rc"; echo "OBSERVATION=$observation"; echo "GUEST_RC=$guest_rc"
  echo "CAPTURE_DIRECT=$(probe_state amshell-probe-direct.txt)"; echo "CAPTURE_REDIRECT=$(probe_state amshell-probe-redir.txt)"; echo "CAPTURE_SYSOUTPUT=$(probe_state amshell-probe-sysout.txt)"
  [[ -f "$OUT/amshell-probe-redir.rc" ]] && echo "CAPTURE_REDIRECT_RC=$(tr -d '\r\n ' < "$OUT/amshell-probe-redir.rc")"
  [[ -f "$OUT/amshell-probe-sysout.rc" ]] && echo "CAPTURE_SYSOUTPUT_RC=$(tr -d '\r\n ' < "$OUT/amshell-probe-sysout.rc")"
+ echo "LAUNCH_VERSION=$(probe_state amshell-ci-version-probe.out) RC=$(probe_rc amshell-ci-version-probe.rc)"
+ echo "LAUNCH_AMSHELL_C=$(probe_state amshell-ci-amshell-probe.out) RC=$(probe_rc amshell-ci-amshell-probe.rc)"
+ echo "LAUNCH_EXECUTE=$(probe_state amshell-ci-execute-probe.out) RC=$(probe_rc amshell-ci-execute-probe.rc)"
  echo "EVIDENCE_FILES=$(wc -l < "$OUT/evidence-files.txt" 2>/dev/null || echo 0)"
 } | tee "$OUT/result.txt"
 [[ "$status" == PASS && "$compare_status" == PASS ]]
