@@ -49,6 +49,15 @@ SYS:C/Assign C: SYS:C
 SYS:C/Path SYS:C ADD
 Echo "unqualified-command-probe" >SYS:amshell-ci-command-probe.txt
 SYS:C/Echo "$RC" >SYS:amshell-ci-command-probe.rc
+; Host-directory staging does not carry native Amiga protection metadata
+; reliably. Explicitly make every staged executable executable before launch.
+SYS:C/Protect SYS:qualification/ArosCaptureProbe +E
+SYS:C/Protect SYS:qualification/m1.5/AmShell +E
+SYS:C/Protect SYS:qualification/m1.5/CompatNative +E
+SYS:C/Protect SYS:qualification/m1.6/AmShell +E
+SYS:C/Protect SYS:qualification/m1.6/CompatNative +E
+SYS:C/Protect SYS:qualification/m1.7-m1.9/AmShell +E
+SYS:C/Protect SYS:qualification/m1.7-m1.9/CompatNative +E
 SYS:qualification/ArosCaptureProbe
 SYS:C/Echo "$RC" >SYS:amshell-capture-probe.rc
 SYS:C/Copy RAM:amshell-probe-#? SYS: ALL QUIET
