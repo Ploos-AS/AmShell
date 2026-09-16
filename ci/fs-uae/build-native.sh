@@ -25,6 +25,22 @@ cp build/ArosCaptureProbe "$OUT/ArosCaptureProbe"
 file "$OUT/AmShell" "$OUT/CompatNative" "$OUT/ArosCaptureProbe" | tee "$OUT/file.txt"
 sha256sum "$OUT/AmShell" "$OUT/CompatNative" "$OUT/ArosCaptureProbe" | tee "$OUT/sha256.txt"
 
+# Diagnostic only: compare the failing AmShell binary with the known-working
+# ArosCaptureProbe at ELF/HUNK/link level. Keep this out of production flags.
+{
+  echo '=== sizes ==='
+  wc -c "$OUT/AmShell" "$OUT/CompatNative" "$OUT/ArosCaptureProbe"
+  echo '=== hunk/file identification ==='
+  file "$OUT/AmShell" "$OUT/CompatNative" "$OUT/ArosCaptureProbe"
+  echo '=== AmShell strings: runtime/library hints ==='
+  strings "$OUT/AmShell" | grep -Ei 'library|dos|ixemul|libnix|stdio|startup|stack|SystemTagList|CurrentDir|MatchFirst' || true
+  echo '=== ArosCaptureProbe strings: runtime/library hints ==='
+  strings "$OUT/ArosCaptureProbe" | grep -Ei 'library|dos|ixemul|libnix|stdio|startup|stack|SystemTagList|CurrentDir|MatchFirst' || true
+  echo '=== CompatNative strings: runtime/library hints ==='
+  strings "$OUT/CompatNative" | grep -Ei 'library|dos|ixemul|libnix|stdio|startup|stack|SystemTagList|CurrentDir|MatchFirst' || true
+} >"$OUT/binary-compare.txt"
+cat "$OUT/binary-compare.txt"
+
 python3 tools/m1_final_bundle.py
 
 printf 'STATUS=PASS\nGATE=NATIVE_BEBBO_BUILD\nIMAGE=%s\n' "$IMAGE" | tee "$OUT/result.txt"
