@@ -30,10 +30,12 @@ cp "$startup" "$ci_script"
 sed -i '/^[[:space:]]*Execute[[:space:]]\+SYS:S\/Startup-Sequence\.amshell-original[[:space:]]*$/d' "$ci_script"
 cp "$startup.amshell-original" "$startup"
 
-# AROS uses Wanderer rather than LoadWB in this image. Wanderer runs in the
-# foreground here, so an appended hook is unreachable. Insert immediately
-# before either GUI-launch form. This is late enough that User-Startup and the
-# normal command/assign/library initialization have completed.
+# AROS uses Wanderer rather than LoadWB in this image. The GUI launch is often
+# guarded by `If EXISTS WANDERER:Wanderer`. Injecting immediately before the
+# Wanderer command itself would put the qualification inside that conditional,
+# so if the deferred WANDERER: assign does not resolve at this point the CI
+# script is skipped entirely. Insert before the surrounding Wanderer EXISTS
+# guard when present; otherwise fall back to a direct LoadWB/Wanderer launch.
 python3 - "$startup" <<'PY_STARTUP'
 from pathlib import Path
 import re
@@ -45,12 +47,17 @@ invoke = 'Execute SYS:S/AmShell-CI\n'
 inserted = False
 out = []
 for line in lines:
+    wanderer_guard = re.match(
+        r'^\s*If\s+EXISTS\s+["\']?WANDERER:Wanderer["\']?(?:\s|$)',
+        line,
+        re.I,
+    )
     gui_launch = (
         re.match(r'^\s*(?:SYS:C/)?LoadWB(?:\s|$)', line, re.I)
         or re.match(r'^\s*(?:WANDERER:)?Wanderer(?:\s|$)', line, re.I)
     )
-    if not inserted and gui_launch:
-        out.append('; AmShell CI: run after core AROS startup, before GUI shell\n')
+    if not inserted and (wanderer_guard or gui_launch):
+        out.append('; AmShell CI: run after core AROS startup, before GUI shell guard\n')
         out.append(invoke)
         inserted = True
     out.append(line)
