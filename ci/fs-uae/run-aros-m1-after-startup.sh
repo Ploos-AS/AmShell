@@ -30,12 +30,10 @@ cp "$startup" "$ci_script"
 sed -i '/^[[:space:]]*Execute[[:space:]]\+SYS:S\/Startup-Sequence\.amshell-original[[:space:]]*$/d' "$ci_script"
 cp "$startup.amshell-original" "$startup"
 
-# AROS uses Wanderer rather than LoadWB in this image. The GUI launch is often
-# guarded by `If EXISTS WANDERER:Wanderer`. Injecting immediately before the
-# Wanderer command itself would put the qualification inside that conditional,
-# so if the deferred WANDERER: assign does not resolve at this point the CI
-# script is skipped entirely. Insert before the surrounding Wanderer EXISTS
-# guard when present; otherwise fall back to a direct LoadWB/Wanderer launch.
+# AROS uses Wanderer rather than LoadWB in this image. Inject before the GUI
+# guard, after the normal startup has established C:, PATH and the rest of the
+# command environment. Use C:Execute explicitly: this avoids relying on PATH
+# lookup for the very command used to enter the qualification script.
 python3 - "$startup" <<'PY_STARTUP'
 from pathlib import Path
 import re
@@ -43,7 +41,7 @@ import sys
 
 p = Path(sys.argv[1])
 lines = p.read_text(errors="surrogateescape").splitlines(True)
-invoke = 'Execute SYS:S/AmShell-CI\n'
+invoke = 'C:Execute SYS:S/AmShell-CI\n'
 inserted = False
 out = []
 for line in lines:
