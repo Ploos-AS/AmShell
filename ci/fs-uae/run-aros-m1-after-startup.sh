@@ -2,11 +2,12 @@
 set -euo pipefail
 
 # The base runner builds the qualification sequence by replacing AROS
-# S:Startup-Sequence.  That is useful for staging, but running the tests before
-# the normal AROS startup leaves Execute/CLI infrastructure incomplete.  Build
+# S:Startup-Sequence. That is useful for staging, but running the tests before
+# the normal AROS startup leaves Execute/CLI infrastructure incomplete. Build
 # a temporary runner which, after staging, turns that generated sequence into
-# S:AmShell-CI and restores the original Startup-Sequence.  The qualification
-# is then injected immediately before LoadWB (or appended as a fallback).
+# S:AmShell-CI and restores the original Startup-Sequence. The qualification
+# is then injected after normal startup initialization but before the GUI shell
+# takes over the startup sequence.
 base="ci/fs-uae/run-aros-m1.sh"
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
@@ -24,13 +25,15 @@ block = r'''# Run the provisional qualification only after normal AROS startup h
 # established assigns, handlers, libraries and Shell/Execute environment.
 ci_script="$aros_root/S/AmShell-CI"
 cp "$startup" "$ci_script"
-# The old pre-startup runner chained to the original startup at the end.  Once
+# The old pre-startup runner chained to the original startup at the end. Once
 # the original startup owns boot sequencing that would recurse, so remove it.
 sed -i '/^[[:space:]]*Execute[[:space:]]\+SYS:S\/Startup-Sequence\.amshell-original[[:space:]]*$/d' "$ci_script"
 cp "$startup.amshell-original" "$startup"
 
-# Insert before Workbench starts.  If this AROS image has no LoadWB line,
-# append the qualification after the startup commands instead.
+# AROS uses Wanderer rather than LoadWB in this image. Wanderer runs in the
+# foreground here, so an appended hook is unreachable. Insert immediately
+# before either GUI-launch form. This is late enough that User-Startup and the
+# normal command/assign/library initialization have completed.
 python3 - "$startup" <<'PY_STARTUP'
 from pathlib import Path
 import re
@@ -42,14 +45,17 @@ invoke = 'Execute SYS:S/AmShell-CI\n'
 inserted = False
 out = []
 for line in lines:
-    if not inserted and re.match(r'^\s*(?:SYS:C/)?LoadWB(?:\s|$)', line, re.I):
-        out.append('; AmShell CI: run after core AROS startup, before Workbench\n')
+    gui_launch = (
+        re.match(r'^\s*(?:SYS:C/)?LoadWB(?:\s|$)', line, re.I)
+        or re.match(r'^\s*(?:WANDERER:)?Wanderer(?:\s|$)', line, re.I)
+    )
+    if not inserted and gui_launch:
+        out.append('; AmShell CI: run after core AROS startup, before GUI shell\n')
         out.append(invoke)
         inserted = True
     out.append(line)
 if not inserted:
-    out.append('\n; AmShell CI: no LoadWB marker found; run after startup initialization\n')
-    out.append(invoke)
+    raise SystemExit('ERROR: no LoadWB/Wanderer launch point found in AROS Startup-Sequence')
 p.write_text(''.join(out), errors="surrogateescape")
 PY_STARTUP
 
