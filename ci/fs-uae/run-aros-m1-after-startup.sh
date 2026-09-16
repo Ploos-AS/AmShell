@@ -30,9 +30,9 @@ cp "$startup" "$ci_script"
 sed -i '/^[[:space:]]*Execute[[:space:]]\+SYS:S\/Startup-Sequence\.amshell-original[[:space:]]*$/d' "$ci_script"
 cp "$startup.amshell-original" "$startup"
 
-# Instrument the real boot path with marker files. These deliberately use
-# fully-qualified C: commands so each marker tells us how far Startup-Sequence
-# actually got without depending on PATH lookup.
+# Instrument the real boot path. A marker is inserted before every executable
+# startup line so the last marker recovered after timeout identifies the exact
+# command/block where boot stopped. This is CI-only and does not touch AmShell.
 python3 - "$startup" <<'PY_STARTUP'
 from pathlib import Path
 import re
@@ -43,9 +43,17 @@ lines = p.read_text(errors="surrogateescape").splitlines(True)
 invoke = 'C:Echo "reached-ci-hook" >SYS:amshell-ci-boot-hook.txt\nC:Execute SYS:S/AmShell-CI\n'
 inserted = False
 out = []
+step = 0
 out.append('C:Echo "startup-enter" >SYS:amshell-ci-boot-enter.txt\n')
-for line in lines:
+for lineno, line in enumerate(lines, 1):
     stripped = line.strip()
+    low = stripped.lower()
+    # Trace executable/control lines, but not comments or blank lines. Echo is
+    # fully qualified and writes directly to SYS:, so PATH is not required.
+    if stripped and not stripped.startswith(';'):
+        step += 1
+        label = re.sub(r'[^A-Za-z0-9_.:-]+', '_', stripped)[:72]
+        out.append(f'C:Echo "step={step} line={lineno} cmd={label}" >SYS:amshell-ci-boot-step-{step:03d}.txt\n')
     if re.match(r'^If\s+EXISTS\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
         out.append('C:Echo "before-user-startup" >SYS:amshell-ci-before-user-startup.txt\n')
     if re.match(r'^Execute\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
@@ -69,10 +77,8 @@ cp "$ci_script" "$OUT/amshell-ci-sequence.txt"
 
 '''
 
-# The base runner previously never copied our boot marker files out of the
-# emulated SYS: volume. Preserve them after FS-UAE returns, before result.txt
-# is assembled, so a missing marker is real evidence rather than an artifact
-# collection omission.
+# Preserve boot markers after FS-UAE returns. The numbered progression markers
+# let the host identify the last Startup-Sequence line actually reached.
 postneedle = 'guest_rc=""; [[ -f "$aros_root/amshell-ci-rc.txt" ]]'
 postblock = r'''for f in \
   amshell-ci-boot-enter.txt \
@@ -81,6 +87,10 @@ postblock = r'''for f in \
   amshell-ci-boot-hook.txt \
   amshell-ci-started.txt; do
   cp "$aros_root/$f" "$OUT/$f" 2>/dev/null || true
+done
+for f in "$aros_root"/amshell-ci-boot-step-*.txt; do
+  [[ -f "$f" ]] || continue
+  cp "$f" "$OUT/" 2>/dev/null || true
 done
 '''
 if postneedle not in src:
