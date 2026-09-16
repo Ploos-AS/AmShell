@@ -28,7 +28,7 @@ jobs:
         run: bash ci/fs-uae/build-native.sh
 
       - name: Gate 3 - combined M1 runtime in AROS guest
-        run: bash ci/fs-uae/run-aros-m1.sh
+        run: bash ci/fs-uae/run-aros-m1-after-startup.sh
 
       - name: Upload provisional qualification evidence
         if: always()
@@ -45,6 +45,8 @@ jobs:
             build/fs-uae/aros-m1/result.txt
             build/fs-uae/aros-m1/fs-uae.log
             build/fs-uae/aros-m1/fs-uae-version.txt
+            build/fs-uae/aros-m1/startup-sequence-patched.txt
+            build/fs-uae/aros-m1/amshell-ci-sequence.txt
             build/fs-uae/aros-m1/guest-console.txt
             build/fs-uae/aros-m1/guest-rc.txt
             build/fs-uae/aros-m1/guest-stage.txt
