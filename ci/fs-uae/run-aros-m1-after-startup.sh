@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Build the provisional AROS qualification with normal system startup first,
-# then run AmShell before the GUI shell takes over.
+# then run AmShell after core shell initialization but before optional package/GUI startup.
 base="ci/fs-uae/run-aros-m1.sh"
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
@@ -75,6 +75,16 @@ for lineno, line in enumerate(lines, 1):
             skip_theme_images = False
         continue
 
+    # By this point core AROS startup, command paths and RexxMast are initialized.
+    # Optional package startup can block in hosted CI and is not required for M1.
+    package_guard = re.match(r'^If\s+EXISTS\s+["\']?ENV:SYS/Packages["\']?\s*$', stripped, re.I)
+    wanderer_guard = re.match(r'^If\s+EXISTS\s+["\']?WANDERER:Wanderer["\']?(?:\s|$)', stripped, re.I)
+    gui_launch = (re.match(r'^(?:SYS:C/)?LoadWB(?:\s|$)', stripped, re.I) or re.match(r'^(?:WANDERER:)?Wanderer(?:\s|$)', stripped, re.I))
+    if not inserted and (package_guard or wanderer_guard or gui_launch):
+        out.append('; AmShell CI: run after core AROS startup, before optional package/GUI startup\n')
+        out.append(invoke)
+        inserted = True
+
     if stripped and not stripped.startswith(';'):
         step += 1
         label = re.sub(r'[^A-Za-z0-9_.:-]+', '_', stripped)[:72]
@@ -83,21 +93,15 @@ for lineno, line in enumerate(lines, 1):
     if re.match(r'^(?:SYS:C/|C:)?SetClock\s+LOAD\s*$', stripped, re.I):
         out.append('C:Echo "skipped SetClock LOAD for hosted CI" >SYS:amshell-ci-setclock-skipped.txt\n')
         continue
-
     if re.match(r'^Dir\s+>NIL:\s+["\']?PIPE:["\']?\s*$', stripped, re.I):
         out.append('C:Echo "skipped PIPE probe for hosted CI" >SYS:amshell-ci-pipe-skipped.txt\n')
         continue
-
     if re.match(r'^(?:SYS:C/|C:)?AddDataTypes\s+REFRESH\s+QUIET\s*$', stripped, re.I):
         out.append('C:Echo "skipped AddDataTypes refresh for hosted CI" >SYS:amshell-ci-datatypes-skipped.txt\n')
         continue
-
     if re.match(r'^(?:SYS:C/|C:)?PsdStackLoader(?:\s+>NIL:)?\s*$', stripped, re.I):
         out.append('C:Echo "skipped Poseidon USB loader for hosted CI" >SYS:amshell-ci-usb-skipped.txt\n')
         continue
-
-    # Font cache/GUI initialization is irrelevant to shell semantics and can
-    # block in the minimal hosted FS-UAE environment.
     if re.match(r'^(?:SYS:C/|C:)?FixFonts(?:\s+>NIL:)?\s*$', stripped, re.I):
         out.append('C:Echo "skipped FixFonts for hosted CI" >SYS:amshell-ci-fixfonts-skipped.txt\n')
         continue
@@ -108,12 +112,6 @@ for lineno, line in enumerate(lines, 1):
         out.append(line)
         out.append('C:Echo "after-user-startup" >SYS:amshell-ci-after-user-startup.txt\n')
         continue
-    wanderer_guard = re.match(r'^\s*If\s+EXISTS\s+["\']?WANDERER:Wanderer["\']?(?:\s|$)', line, re.I)
-    gui_launch = (re.match(r'^\s*(?:SYS:C/)?LoadWB(?:\s|$)', line, re.I) or re.match(r'^\s*(?:WANDERER:)?Wanderer(?:\s|$)', line, re.I))
-    if not inserted and (wanderer_guard or gui_launch):
-        out.append('; AmShell CI: run after core AROS startup, before GUI shell guard\n')
-        out.append(invoke)
-        inserted = True
     out.append(line)
 if skip_bluetooth:
     raise SystemExit('ERROR: unterminated Bluetooth startup block')
@@ -122,7 +120,7 @@ if skip_theme:
 if skip_theme_images:
     raise SystemExit('ERROR: unterminated theme Images startup block')
 if not inserted:
-    raise SystemExit('ERROR: no LoadWB/Wanderer launch point found in AROS Startup-Sequence')
+    raise SystemExit('ERROR: no package/LoadWB/Wanderer qualification point found in AROS Startup-Sequence')
 p.write_text(''.join(out), errors="surrogateescape")
 PY_STARTUP
 
