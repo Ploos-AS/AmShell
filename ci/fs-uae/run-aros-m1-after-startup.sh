@@ -37,9 +37,6 @@ out.append('C:Echo "startup-enter" >SYS:amshell-ci-boot-enter.txt\n')
 for lineno, line in enumerate(lines, 1):
     stripped = line.strip()
 
-    # The hosted image blocks while evaluating/initializing its optional
-    # Bluetooth startup block. Bluetooth is unrelated to shell qualification,
-    # so omit the complete guarded block only in this CI boot copy.
     if not skip_bluetooth and re.match(r'^If\s+EXISTS\s+["\']?SYS:Classes/Bluetooth["\']?\s*$', stripped, re.I):
         step += 1
         label = re.sub(r'[^A-Za-z0-9_.:-]+', '_', stripped)[:72]
@@ -59,6 +56,13 @@ for lineno, line in enumerate(lines, 1):
 
     if re.match(r'^(?:SYS:C/|C:)?SetClock\s+LOAD\s*$', stripped, re.I):
         out.append('C:Echo "skipped SetClock LOAD for hosted CI" >SYS:amshell-ci-setclock-skipped.txt\n')
+        continue
+
+    # `Dir >NIL: "PIPE:"` opens the PIPE: handler and can wait indefinitely in
+    # the non-interactive hosted FS-UAE boot. It is only a startup probe/warmup,
+    # not required for AmShell qualification, so omit it in this CI boot copy.
+    if re.match(r'^Dir\s+>NIL:\s+["\']?PIPE:["\']?\s*$', stripped, re.I):
+        out.append('C:Echo "skipped PIPE probe for hosted CI" >SYS:amshell-ci-pipe-skipped.txt\n')
         continue
 
     if re.match(r'^If\s+EXISTS\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
@@ -91,6 +95,7 @@ postblock = r'''for f in \
   amshell-ci-boot-enter.txt \
   amshell-ci-setclock-skipped.txt \
   amshell-ci-bluetooth-skipped.txt \
+  amshell-ci-pipe-skipped.txt \
   amshell-ci-before-user-startup.txt \
   amshell-ci-after-user-startup.txt \
   amshell-ci-boot-hook.txt \
