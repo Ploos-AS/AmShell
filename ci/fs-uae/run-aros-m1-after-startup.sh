@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# The base runner builds the qualification sequence by replacing AROS
-# S:Startup-Sequence. That is useful for staging, but running the tests before
-# the normal AROS startup leaves Execute/CLI infrastructure incomplete. Build
-# a temporary runner which, after staging, turns that generated sequence into
-# S:AmShell-CI and restores the original Startup-Sequence. The qualification
-# is then injected after normal startup initialization but before the GUI shell
-# takes over the startup sequence.
+# Build the provisional AROS qualification with normal system startup first,
+# then run AmShell before the GUI shell takes over.
 base="ci/fs-uae/run-aros-m1.sh"
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
@@ -21,17 +16,11 @@ needle = 'config="$OUT/aros-m1.fs-uae"\n'
 if needle not in src:
     raise SystemExit("ERROR: runner injection point not found")
 
-block = r'''# Run the provisional qualification only after normal AROS startup has
-# established assigns, handlers, libraries and Shell/Execute environment.
-ci_script="$aros_root/S/AmShell-CI"
+block = r'''ci_script="$aros_root/S/AmShell-CI"
 cp "$startup" "$ci_script"
 sed -i '/^[[:space:]]*Execute[[:space:]]\+SYS:S\/Startup-Sequence\.amshell-original[[:space:]]*$/d' "$ci_script"
 cp "$startup.amshell-original" "$startup"
 
-# SetClock LOAD is hardware/RTC initialization and blocks indefinitely in the
-# hosted FS-UAE AROS environment. It is irrelevant to shell qualification, so
-# skip only this command in the CI copy of Startup-Sequence. Preserve a marker
-# proving that the CI-specific bypass was taken.
 python3 - "$startup" <<'PY_STARTUP'
 from pathlib import Path
 import re
@@ -43,16 +32,31 @@ invoke = 'C:Echo "reached-ci-hook" >SYS:amshell-ci-boot-hook.txt\nC:Execute SYS:
 inserted = False
 out = []
 step = 0
+skip_bluetooth = False
 out.append('C:Echo "startup-enter" >SYS:amshell-ci-boot-enter.txt\n')
 for lineno, line in enumerate(lines, 1):
     stripped = line.strip()
+
+    # The hosted image blocks while evaluating/initializing its optional
+    # Bluetooth startup block. Bluetooth is unrelated to shell qualification,
+    # so omit the complete guarded block only in this CI boot copy.
+    if not skip_bluetooth and re.match(r'^If\s+EXISTS\s+["\']?SYS:Classes/Bluetooth["\']?\s*$', stripped, re.I):
+        step += 1
+        label = re.sub(r'[^A-Za-z0-9_.:-]+', '_', stripped)[:72]
+        out.append(f'C:Echo "step={step} line={lineno} cmd={label}" >SYS:amshell-ci-boot-step-{step:03d}.txt\n')
+        out.append('C:Echo "skipped Bluetooth startup block for hosted CI" >SYS:amshell-ci-bluetooth-skipped.txt\n')
+        skip_bluetooth = True
+        continue
+    if skip_bluetooth:
+        if re.match(r'^EndIf\s*$', stripped, re.I):
+            skip_bluetooth = False
+        continue
+
     if stripped and not stripped.startswith(';'):
         step += 1
         label = re.sub(r'[^A-Za-z0-9_.:-]+', '_', stripped)[:72]
         out.append(f'C:Echo "step={step} line={lineno} cmd={label}" >SYS:amshell-ci-boot-step-{step:03d}.txt\n')
 
-    # Hosted-CI exception: SetClock LOAD blocks on this virtual machine before
-    # the command environment needed by the qualification has initialized.
     if re.match(r'^(?:SYS:C/|C:)?SetClock\s+LOAD\s*$', stripped, re.I):
         out.append('C:Echo "skipped SetClock LOAD for hosted CI" >SYS:amshell-ci-setclock-skipped.txt\n')
         continue
@@ -70,6 +74,8 @@ for lineno, line in enumerate(lines, 1):
         out.append(invoke)
         inserted = True
     out.append(line)
+if skip_bluetooth:
+    raise SystemExit('ERROR: unterminated Bluetooth startup block')
 if not inserted:
     raise SystemExit('ERROR: no LoadWB/Wanderer launch point found in AROS Startup-Sequence')
 p.write_text(''.join(out), errors="surrogateescape")
@@ -84,6 +90,7 @@ postneedle = 'guest_rc=""; [[ -f "$aros_root/amshell-ci-rc.txt" ]]'
 postblock = r'''for f in \
   amshell-ci-boot-enter.txt \
   amshell-ci-setclock-skipped.txt \
+  amshell-ci-bluetooth-skipped.txt \
   amshell-ci-before-user-startup.txt \
   amshell-ci-after-user-startup.txt \
   amshell-ci-boot-hook.txt \
