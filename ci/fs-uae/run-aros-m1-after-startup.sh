@@ -33,6 +33,7 @@ inserted = False
 out = []
 step = 0
 skip_bluetooth = False
+skip_theme = False
 out.append('C:Echo "startup-enter" >SYS:amshell-ci-boot-enter.txt\n')
 for lineno, line in enumerate(lines, 1):
     stripped = line.strip()
@@ -49,6 +50,21 @@ for lineno, line in enumerate(lines, 1):
             skip_bluetooth = False
         continue
 
+    # Theme selection is GUI-only and the ENV:SYS/theme.var EXISTS probe can
+    # block in this hosted boot. Skip the complete guarded theme block while
+    # preserving a trace marker; it is irrelevant to shell qualification.
+    if not skip_theme and re.match(r'^If\s+EXISTS\s+["\']?ENV:SYS/theme\.var["\']?\s*$', stripped, re.I):
+        step += 1
+        label = re.sub(r'[^A-Za-z0-9_.:-]+', '_', stripped)[:72]
+        out.append(f'C:Echo "step={step} line={lineno} cmd={label}" >SYS:amshell-ci-boot-step-{step:03d}.txt\n')
+        out.append('C:Echo "skipped theme ENV probe for hosted CI" >SYS:amshell-ci-theme-skipped.txt\n')
+        skip_theme = True
+        continue
+    if skip_theme:
+        if re.match(r'^EndIf\s*$', stripped, re.I):
+            skip_theme = False
+        continue
+
     if stripped and not stripped.startswith(';'):
         step += 1
         label = re.sub(r'[^A-Za-z0-9_.:-]+', '_', stripped)[:72]
@@ -58,9 +74,6 @@ for lineno, line in enumerate(lines, 1):
         out.append('C:Echo "skipped SetClock LOAD for hosted CI" >SYS:amshell-ci-setclock-skipped.txt\n')
         continue
 
-    # `Dir >NIL: "PIPE:"` opens the PIPE: handler and can wait indefinitely in
-    # the non-interactive hosted FS-UAE boot. It is only a startup probe/warmup,
-    # not required for AmShell qualification, so omit it in this CI boot copy.
     if re.match(r'^Dir\s+>NIL:\s+["\']?PIPE:["\']?\s*$', stripped, re.I):
         out.append('C:Echo "skipped PIPE probe for hosted CI" >SYS:amshell-ci-pipe-skipped.txt\n')
         continue
@@ -80,6 +93,8 @@ for lineno, line in enumerate(lines, 1):
     out.append(line)
 if skip_bluetooth:
     raise SystemExit('ERROR: unterminated Bluetooth startup block')
+if skip_theme:
+    raise SystemExit('ERROR: unterminated theme startup block')
 if not inserted:
     raise SystemExit('ERROR: no LoadWB/Wanderer launch point found in AROS Startup-Sequence')
 p.write_text(''.join(out), errors="surrogateescape")
@@ -96,6 +111,7 @@ postblock = r'''for f in \
   amshell-ci-setclock-skipped.txt \
   amshell-ci-bluetooth-skipped.txt \
   amshell-ci-pipe-skipped.txt \
+  amshell-ci-theme-skipped.txt \
   amshell-ci-before-user-startup.txt \
   amshell-ci-after-user-startup.txt \
   amshell-ci-boot-hook.txt \
