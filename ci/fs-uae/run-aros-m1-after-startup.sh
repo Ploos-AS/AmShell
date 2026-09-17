@@ -63,9 +63,6 @@ for lineno, line in enumerate(lines, 1):
             skip_theme = False
         continue
 
-    # The theme image overlay is another GUI-only guarded probe immediately
-    # after theme selection. THEME: may be unresolved/deferred in hosted boot,
-    # so omit this block as well; base IMAGES: remains assigned to SYS:System/Images.
     if not skip_theme_images and re.match(r'^If\s+EXISTS\s+["\']?THEME:Images["\']?\s*$', stripped, re.I):
         step += 1
         label = re.sub(r'[^A-Za-z0-9_.:-]+', '_', stripped)[:72]
@@ -89,6 +86,12 @@ for lineno, line in enumerate(lines, 1):
 
     if re.match(r'^Dir\s+>NIL:\s+["\']?PIPE:["\']?\s*$', stripped, re.I):
         out.append('C:Echo "skipped PIPE probe for hosted CI" >SYS:amshell-ci-pipe-skipped.txt\n')
+        continue
+
+    # Refreshing GUI datatypes can block while handlers/classes initialize in
+    # hosted FS-UAE. AmShell M1 does not depend on datatypes, so omit it here.
+    if re.match(r'^(?:SYS:C/|C:)?AddDataTypes\s+REFRESH\s+QUIET\s*$', stripped, re.I):
+        out.append('C:Echo "skipped AddDataTypes refresh for hosted CI" >SYS:amshell-ci-datatypes-skipped.txt\n')
         continue
 
     if re.match(r'^If\s+EXISTS\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
@@ -128,6 +131,7 @@ postblock = r'''for f in \
   amshell-ci-pipe-skipped.txt \
   amshell-ci-theme-skipped.txt \
   amshell-ci-theme-images-skipped.txt \
+  amshell-ci-datatypes-skipped.txt \
   amshell-ci-before-user-startup.txt \
   amshell-ci-after-user-startup.txt \
   amshell-ci-boot-hook.txt \
