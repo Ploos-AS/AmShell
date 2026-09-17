@@ -88,16 +88,18 @@ for lineno, line in enumerate(lines, 1):
         out.append('C:Echo "skipped PIPE probe for hosted CI" >SYS:amshell-ci-pipe-skipped.txt\n')
         continue
 
-    # Refreshing GUI datatypes can block while handlers/classes initialize in
-    # hosted FS-UAE. AmShell M1 does not depend on datatypes, so omit it here.
     if re.match(r'^(?:SYS:C/|C:)?AddDataTypes\s+REFRESH\s+QUIET\s*$', stripped, re.I):
         out.append('C:Echo "skipped AddDataTypes refresh for hosted CI" >SYS:amshell-ci-datatypes-skipped.txt\n')
         continue
 
-    # Poseidon USB initialization is hardware-specific and can wait for a USB
-    # stack/controller that does not exist in the hosted FS-UAE CI machine.
     if re.match(r'^(?:SYS:C/|C:)?PsdStackLoader(?:\s+>NIL:)?\s*$', stripped, re.I):
         out.append('C:Echo "skipped Poseidon USB loader for hosted CI" >SYS:amshell-ci-usb-skipped.txt\n')
+        continue
+
+    # Font cache/GUI initialization is irrelevant to shell semantics and can
+    # block in the minimal hosted FS-UAE environment.
+    if re.match(r'^(?:SYS:C/|C:)?FixFonts(?:\s+>NIL:)?\s*$', stripped, re.I):
+        out.append('C:Echo "skipped FixFonts for hosted CI" >SYS:amshell-ci-fixfonts-skipped.txt\n')
         continue
 
     if re.match(r'^If\s+EXISTS\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
@@ -139,6 +141,7 @@ postblock = r'''for f in \
   amshell-ci-theme-images-skipped.txt \
   amshell-ci-datatypes-skipped.txt \
   amshell-ci-usb-skipped.txt \
+  amshell-ci-fixfonts-skipped.txt \
   amshell-ci-before-user-startup.txt \
   amshell-ci-after-user-startup.txt \
   amshell-ci-boot-hook.txt \
