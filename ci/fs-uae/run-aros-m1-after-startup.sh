@@ -25,14 +25,13 @@ block = r'''# Run the provisional qualification only after normal AROS startup h
 # established assigns, handlers, libraries and Shell/Execute environment.
 ci_script="$aros_root/S/AmShell-CI"
 cp "$startup" "$ci_script"
-# The old pre-startup runner chained to the original startup at the end. Once
-# the original startup owns boot sequencing that would recurse, so remove it.
 sed -i '/^[[:space:]]*Execute[[:space:]]\+SYS:S\/Startup-Sequence\.amshell-original[[:space:]]*$/d' "$ci_script"
 cp "$startup.amshell-original" "$startup"
 
-# Instrument the real boot path. A marker is inserted before every executable
-# startup line so the last marker recovered after timeout identifies the exact
-# command/block where boot stopped. This is CI-only and does not touch AmShell.
+# SetClock LOAD is hardware/RTC initialization and blocks indefinitely in the
+# hosted FS-UAE AROS environment. It is irrelevant to shell qualification, so
+# skip only this command in the CI copy of Startup-Sequence. Preserve a marker
+# proving that the CI-specific bypass was taken.
 python3 - "$startup" <<'PY_STARTUP'
 from pathlib import Path
 import re
@@ -47,13 +46,17 @@ step = 0
 out.append('C:Echo "startup-enter" >SYS:amshell-ci-boot-enter.txt\n')
 for lineno, line in enumerate(lines, 1):
     stripped = line.strip()
-    low = stripped.lower()
-    # Trace executable/control lines, but not comments or blank lines. Echo is
-    # fully qualified and writes directly to SYS:, so PATH is not required.
     if stripped and not stripped.startswith(';'):
         step += 1
         label = re.sub(r'[^A-Za-z0-9_.:-]+', '_', stripped)[:72]
         out.append(f'C:Echo "step={step} line={lineno} cmd={label}" >SYS:amshell-ci-boot-step-{step:03d}.txt\n')
+
+    # Hosted-CI exception: SetClock LOAD blocks on this virtual machine before
+    # the command environment needed by the qualification has initialized.
+    if re.match(r'^(?:SYS:C/|C:)?SetClock\s+LOAD\s*$', stripped, re.I):
+        out.append('C:Echo "skipped SetClock LOAD for hosted CI" >SYS:amshell-ci-setclock-skipped.txt\n')
+        continue
+
     if re.match(r'^If\s+EXISTS\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
         out.append('C:Echo "before-user-startup" >SYS:amshell-ci-before-user-startup.txt\n')
     if re.match(r'^Execute\s+["\']?S:User-Startup["\']?(?:\s|$)', stripped, re.I):
@@ -77,11 +80,10 @@ cp "$ci_script" "$OUT/amshell-ci-sequence.txt"
 
 '''
 
-# Preserve boot markers after FS-UAE returns. The numbered progression markers
-# let the host identify the last Startup-Sequence line actually reached.
 postneedle = 'guest_rc=""; [[ -f "$aros_root/amshell-ci-rc.txt" ]]'
 postblock = r'''for f in \
   amshell-ci-boot-enter.txt \
+  amshell-ci-setclock-skipped.txt \
   amshell-ci-before-user-startup.txt \
   amshell-ci-after-user-startup.txt \
   amshell-ci-boot-hook.txt \
