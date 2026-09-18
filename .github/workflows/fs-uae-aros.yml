@@ -19,16 +19,26 @@ jobs:
       - name: Gate 1 - host regression suite
         run: make check
 
-      - name: Build standard amiga-dev image
-        run: |
-          git clone --depth 1 https://github.com/Ploos-AS/amiga-dev.git "$RUNNER_TEMP/amiga-dev"
-          docker build -t ploos-amiga-dev:ci "$RUNNER_TEMP/amiga-dev"
+      - name: Pull standard amiga-dev image
+        env:
+          AMIGA_DEV_IMAGE: ghcr.io/ploos-as/amiga-dev:edge
+        run: docker pull "$AMIGA_DEV_IMAGE"
 
       - name: Gate 2 - build AmShell with amiga-dev
+        env:
+          AMIGA_DEV_IMAGE: ghcr.io/ploos-as/amiga-dev:edge
+          AMIGA_CPU_PROFILE: "68000"
         run: |
-          docker run --rm -v "$PWD:/workspace" -w /workspace ploos-amiga-dev:ci sh -lc 'make clean && make check && make'
+          docker run --rm "$AMIGA_DEV_IMAGE" amiga-check
+          docker run --rm \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e AMIGA_CPU_PROFILE="$AMIGA_CPU_PROFILE" \
+            -v "$PWD:/workspace" \
+            "$AMIGA_DEV_IMAGE" \
+            amiga-build sh -lc 'make clean && make check && make'
           mkdir -p build/standard-infra
-          printf '%s\n' 'builder=amiga-dev' 'qualification=Q1' > build/standard-infra/dev.txt
+          printf '%s\n' 'builder=amiga-dev' 'image=ghcr.io/ploos-as/amiga-dev:edge' 'cpu=68000' 'qualification=Q1' > build/standard-infra/dev.txt
 
       - name: Build standard amiga-runtime image
         run: |
