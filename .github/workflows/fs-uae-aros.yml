@@ -21,8 +21,8 @@ jobs:
 
       - name: Build standard amiga-dev image
         run: |
-          git clone --depth 1 https://github.com/Ploos-AS/amiga-dev.git build/amiga-dev
-          docker build -t ploos-amiga-dev:ci build/amiga-dev
+          git clone --depth 1 https://github.com/Ploos-AS/amiga-dev.git "$RUNNER_TEMP/amiga-dev"
+          docker build -t ploos-amiga-dev:ci "$RUNNER_TEMP/amiga-dev"
 
       - name: Gate 2 - build AmShell with amiga-dev
         run: |
@@ -32,8 +32,8 @@ jobs:
 
       - name: Build standard amiga-runtime image
         run: |
-          git clone --depth 1 https://github.com/Ploos-AS/amiga-runtime.git build/amiga-runtime
-          docker build -t ploos-amiga-runtime:ci build/amiga-runtime
+          git clone --depth 1 https://github.com/Ploos-AS/amiga-runtime.git "$RUNNER_TEMP/amiga-runtime"
+          docker build -t ploos-amiga-runtime:ci "$RUNNER_TEMP/amiga-runtime"
           docker run --rm ploos-amiga-runtime:ci self-test
           mkdir -p build/standard-infra
           printf '%s\n' 'runtime=amiga-runtime' 'qualification=provisional-ci-only' > build/standard-infra/runtime.txt
