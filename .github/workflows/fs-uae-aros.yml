@@ -36,7 +36,21 @@ jobs:
             -e AMIGA_CPU_PROFILE="$AMIGA_CPU_PROFILE" \
             -v "$PWD:/workspace" \
             "$AMIGA_DEV_IMAGE" \
-            amiga-build sh -lc 'make clean && make check && make'
+            amiga-build make clean
+          docker run --rm \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e AMIGA_CPU_PROFILE="$AMIGA_CPU_PROFILE" \
+            -v "$PWD:/workspace" \
+            "$AMIGA_DEV_IMAGE" \
+            amiga-build make check
+          docker run --rm \
+            -u "$(id -u):$(id -g)" \
+            -e HOME=/tmp \
+            -e AMIGA_CPU_PROFILE="$AMIGA_CPU_PROFILE" \
+            -v "$PWD:/workspace" \
+            "$AMIGA_DEV_IMAGE" \
+            amiga-build make
           mkdir -p build/standard-infra
           printf '%s\n' 'builder=amiga-dev' 'image=ghcr.io/ploos-as/amiga-dev:edge' 'cpu=68000' 'qualification=Q1' > build/standard-infra/dev.txt
 
