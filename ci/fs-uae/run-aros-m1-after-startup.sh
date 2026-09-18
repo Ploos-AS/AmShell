@@ -21,14 +21,19 @@ cp "$startup" "$ci_script"
 sed -i '/^[[:space:]]*Execute[[:space:]]\+SYS:S\/Startup-Sequence\.amshell-original[[:space:]]*$/d' "$ci_script"
 cp "$startup.amshell-original" "$startup"
 
-python3 - "$startup" <<'PY_STARTUP'
+python3 - "$startup" "$ci_script" <<'PY_STARTUP'
 from pathlib import Path
 import re
 import sys
 
 p = Path(sys.argv[1])
 lines = p.read_text(errors="surrogateescape").splitlines(True)
-invoke = 'C:Echo "reached-ci-hook" >SYS:amshell-ci-boot-hook.txt\nC:Execute SYS:S/AmShell-CI\n'
+ci_lines = Path(sys.argv[2]).read_text(errors="surrogateescape").splitlines(True)
+# Nested Execute of AmShell-CI stalls in hosted AROS even after core startup.
+# Inline the already-generated qualification sequence into the same startup
+# Shell session instead. This is CI-only and preserves production semantics.
+invoke = ['C:Echo "reached-ci-hook" >SYS:amshell-ci-boot-hook.txt\n']
+invoke.extend(ci_lines)
 inserted = False
 out = []
 step = 0
@@ -82,7 +87,7 @@ for lineno, line in enumerate(lines, 1):
     gui_launch = (re.match(r'^(?:SYS:C/)?LoadWB(?:\s|$)', stripped, re.I) or re.match(r'^(?:WANDERER:)?Wanderer(?:\s|$)', stripped, re.I))
     if not inserted and (package_guard or wanderer_guard or gui_launch):
         out.append('; AmShell CI: run after core AROS startup, before optional package/GUI startup\n')
-        out.append(invoke)
+        out.extend(invoke)
         inserted = True
 
     if stripped and not stripped.startswith(';'):
