@@ -30,7 +30,7 @@ p = Path(sys.argv[1])
 lines = p.read_text(errors="surrogateescape").splitlines(True)
 # Keep the known-good boot sequence intact. At the hook, hand control to the
 # qualification script with Execute and record markers around the handoff.
-invoke = 'C:Echo "reached-ci-hook" >SYS:amshell-ci-boot-hook.txt\nC:Execute SYS:S/AmShell-CI\n'
+invoke = 'C:Echo "reached-ci-hook" >SYS:amshell-ci-boot-hook.txt\nC:Run >NIL: C:Execute SYS:S/AmShell-CI\n'
 inserted = False
 out = []
 step = 0
