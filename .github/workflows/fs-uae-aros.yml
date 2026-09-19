@@ -60,15 +60,17 @@ jobs:
           docker build -t ploos-amiga-runtime:ci "$RUNNER_TEMP/amiga-runtime"
           docker run --rm ploos-amiga-runtime:ci self-test
           mkdir -p build/standard-infra build/amiga-runtime-evidence
+          docker volume create amshell-aros-runtime >/dev/null
           docker run --rm \
-            -v "$PWD:/work/input:ro" \
-            -v "$PWD/build/amiga-runtime-evidence:/work/evidence" \
+            -v amshell-aros-runtime:/opt/amiga-runtime/aros \
             ploos-amiga-runtime:ci prepare-aros
           docker run --rm \
+            -v amshell-aros-runtime:/opt/amiga-runtime/aros:ro \
             -v "$PWD:/work/input:ro" \
             -v "$PWD/build/amiga-runtime-evidence:/work/evidence" \
             ploos-amiga-runtime:ci \
             test /work/input/build/AmShell --runtime fs-uae --profile a1200-020
+          docker volume rm amshell-aros-runtime >/dev/null
           printf '%s\n' 'runtime=amiga-runtime' 'backend=fs-uae' 'profile=a1200-020' 'qualification=Q2/Q3-provisional' > build/standard-infra/runtime.txt
 
       - name: Upload provisional qualification evidence
