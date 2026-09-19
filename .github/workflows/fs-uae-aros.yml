@@ -54,17 +54,22 @@ jobs:
           mkdir -p build/standard-infra
           printf '%s\n' 'builder=amiga-dev' 'image=ghcr.io/ploos-as/amiga-dev:edge' 'cpu=68000' 'qualification=Q1' > build/standard-infra/dev.txt
 
-      - name: Build standard amiga-runtime image
+      - name: Gate 3 - standard amiga-runtime Q2/Q3
         run: |
           git clone --depth 1 https://github.com/Ploos-AS/amiga-runtime.git "$RUNNER_TEMP/amiga-runtime"
           docker build -t ploos-amiga-runtime:ci "$RUNNER_TEMP/amiga-runtime"
           docker run --rm ploos-amiga-runtime:ci self-test
-          mkdir -p build/standard-infra
-          printf '%s\n' 'runtime=amiga-runtime' 'qualification=provisional-ci-only' > build/standard-infra/runtime.txt
-
-      - name: Gate 3 - legacy AROS M1 harness (provisional)
-        continue-on-error: true
-        run: bash ci/fs-uae/run-aros-m1-after-startup.sh
+          mkdir -p build/standard-infra build/amiga-runtime-evidence
+          docker run --rm \
+            -v "$PWD:/work/input:ro" \
+            -v "$PWD/build/amiga-runtime-evidence:/work/evidence" \
+            ploos-amiga-runtime:ci prepare-aros
+          docker run --rm \
+            -v "$PWD:/work/input:ro" \
+            -v "$PWD/build/amiga-runtime-evidence:/work/evidence" \
+            ploos-amiga-runtime:ci \
+            test /work/input/build/AmShell --runtime fs-uae --profile a1200-020
+          printf '%s\n' 'runtime=amiga-runtime' 'backend=fs-uae' 'profile=a1200-020' 'qualification=Q2/Q3-provisional' > build/standard-infra/runtime.txt
 
       - name: Upload provisional qualification evidence
         if: always()
@@ -73,6 +78,7 @@ jobs:
           name: amshell-fs-uae-aros-m1-provisional
           path: |
             build/standard-infra/**
+            build/amiga-runtime-evidence/**
             build/fs-uae/native/result.txt
             build/fs-uae/native/toolchain-image.txt
             build/fs-uae/native/file.txt
